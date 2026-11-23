@@ -8,6 +8,7 @@ const CENTERS = [
   [9.3, -8.6], [12, -8.6], [14.7, -8.6],
   [9.3, -4.5], [12, -4.5], [14.7, -4.5],
 ];
+const STATES = ['empty', 'growing', 'ready'];
 const SOIL = new THREE.Color(0xffffff);
 const SOIL_WET = new THREE.Color(0x8c7a78);
 
@@ -74,15 +75,21 @@ export class Garden {
     p.watered = false;
   }
 
-  update(dt, time) {
+  // Lógica (só quem simula)
+  tick(dt) {
     for (const p of this.plots) {
-      if (p.state === 'growing') {
-        p.g += dt / (GROW_TIME / (p.watered ? 2 : 1));
-        if (p.g >= 1) {
-          p.g = 1;
-          p.state = 'ready';
-        }
+      if (p.state !== 'growing') continue;
+      p.g += dt / (GROW_TIME / (p.watered ? 2 : 1));
+      if (p.g >= 1) {
+        p.g = 1;
+        p.state = 'ready';
       }
+    }
+  }
+
+  // Visual (todos)
+  render(time) {
+    for (const p of this.plots) {
       // Solo molhado escurece em degraus (sem gradiente)
       p.wet = p.watered ? 1 : 0;
       p.soilMat.color.copy(SOIL).lerp(SOIL_WET, p.wet);
@@ -96,5 +103,18 @@ export class Garden {
         if (CONFIG.plantWind && Math.sin(time * 1.5 + k + p.i) > 0.7) m.position.addScaledVector(CAM.right, CONFIG.texel);
       });
     }
+  }
+
+  toNet() {
+    return this.plots.map((p) => [STATES.indexOf(p.state), Math.round(p.g * 1000) / 1000, p.watered ? 1 : 0]);
+  }
+
+  fromNet(arr) {
+    arr.forEach(([st, g, w], i) => {
+      const p = this.plots[i];
+      p.state = STATES[st];
+      p.g = g;
+      p.watered = !!w;
+    });
   }
 }

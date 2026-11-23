@@ -20,7 +20,59 @@ const COUNTER = V(-4.5, -7);
 // Faixas da calçada por sentido (evita trombadas de frente)
 const lane = (north, dir) => (north ? (dir > 0 ? 2.0 : 2.6) : dir > 0 ? 10.0 : 10.6);
 
-const NPC_SHEETS = ['npc_0', 'npc_1', 'npc_2', 'npc_3', 'npc_4', 'npc_5', 'npc_6', 'npc_7'];
+export const NPC_SHEETS = ['npc_0', 'npc_1', 'npc_2', 'npc_3', 'npc_4', 'npc_5', 'npc_6', 'npc_7'];
+export const NPC_STATES = ['walk', 'queue', 'leave'];
+
+// Balão (DOM) sobre a cabeça do cliente
+export function createBubble(overlay) {
+  const el = document.createElement('div');
+  el.className = 'bubble';
+  const img = document.createElement('img');
+  const bar = document.createElement('div');
+  bar.className = 'bar';
+  const fill = document.createElement('div');
+  fill.className = 'fill';
+  bar.appendChild(fill);
+  el.append(img, bar);
+  el.style.display = 'none';
+  overlay.appendChild(el);
+  return { el, img, bar, fill, curIcon: null };
+}
+
+// Escolhe e posiciona o ícone do balão a partir do estado do cliente
+export function renderBubble(n, project, ps, time) {
+  let ic = null;
+  let showBar = false;
+  if (n.tempT > 0 && n.tempIcon) ic = n.tempIcon;
+  else if (n.state === 'queue') {
+    ic = 'coffee';
+    showBar = n.waiting;
+  } else if (n.state === 'walk' && n.wants && !n.decided) ic = 'coffee';
+  else if (n.state === 'walk' && n.icon && (time + n.seed) % 9 < 3.5) ic = n.icon;
+
+  const s = ic && project(n.pos, 1.75);
+  if (!ic || !s.on) {
+    n.el.style.display = 'none';
+    return;
+  }
+  n.el.style.display = 'flex';
+  if (n.curIcon !== ic) {
+    const d = icon(ic);
+    n.img.src = d.url;
+    n.iconW = d.w;
+    n.curIcon = ic;
+  }
+  n.img.style.width = `${n.iconW * ps}px`;
+  n.bar.style.display = showBar ? 'block' : 'none';
+  let shake = 0;
+  if (showBar) {
+    const f = Math.max(0, n.patience / n.patienceMax);
+    n.fill.style.width = `${f * 100}%`;
+    n.fill.style.background = f > 0.5 ? '#5bbf5b' : f > 0.25 ? '#ffd34e' : '#e8424f';
+    if (f < 0.25) shake = Math.round(Math.sin(time * 30) * 0.6) * ps;
+  }
+  n.el.style.transform = `translate(${s.x + shake}px, ${s.y}px) translate(-50%, -100%)`;
+}
 
 let NEXT_ID = 1;
 
@@ -40,7 +92,8 @@ export class NPCManager {
     const north = Math.random() < 0.55;
     const dir = fromLeft ? 1 : -1;
     const startX = initial ? rand(-38, 38) : -dir * END_X;
-    const char = createCharacter(pick(NPC_SHEETS));
+    const sheet = Math.floor(Math.random() * NPC_SHEETS.length);
+    const char = createCharacter(NPC_SHEETS[sheet]);
     const laneZ = lane(north, dir) + rand(-0.15, 0.15);
     char.root.position.set(startX, groundY(startX, laneZ), laneZ);
     this.scene.add(char.root);
@@ -48,25 +101,14 @@ export class NPCManager {
     const passed = dir > 0 ? startX > CROSS_X : startX < CROSS_X;
     const wants = !passed && Math.random() < this.game.wantChance();
 
-    const el = document.createElement('div');
-    el.className = 'bubble';
-    const img = document.createElement('img');
-    const bar = document.createElement('div');
-    bar.className = 'bar';
-    const fill = document.createElement('div');
-    fill.className = 'fill';
-    bar.appendChild(fill);
-    el.append(img, bar);
-    el.style.display = 'none';
-    this.overlay.appendChild(el);
-
     const n = {
-      id: NEXT_ID++, char, pos: char.root.position, north, laneZ, endX: dir * END_X,
+      ...createBubble(this.overlay),
+      id: NEXT_ID++, sheet, char, pos: char.root.position, north, laneZ, endX: dir * END_X,
       speed: rand(1.5, 2.1), state: 'walk', path: [], wants, decided: passed,
       waiting: false, patience: 0, patienceMax: 1, slot: -1,
       icon: wants ? null : pick(['note', 'house', 'bag', null]),
       tempIcon: null, tempT: 0, prevX: startX, angle: dir > 0 ? Math.PI / 2 : -Math.PI / 2,
-      seed: Math.random() * 9, el, img, bar, fill, curIcon: null, dead: false,
+      seed: Math.random() * 9, dead: false,
     };
     char.face(n.angle);
     this.list.push(n);
@@ -121,6 +163,10 @@ export class NPCManager {
         n.path = this.route(n, i);
       }
     });
+  }
+
+  get queueLength() {
+    return this.queue.length;
   }
 
   front() {
@@ -179,12 +225,13 @@ export class NPCManager {
     }
   }
 
-  update(dt, playerPos) {
+  // playerPositions: posições de todos os baristas (os clientes desviam deles)
+  update(dt, playerPositions) {
     if (!(dt > 0)) return;
     this.spawnT -= dt;
     if (this.spawnT <= 0) {
       if (this.list.length < this.game.maxNPCs()) this.spawn();
-      this.spawnT = rand(2.5, 5.5) / (0.8 + this.game.stars * 0.15);
+      this.spawnT = rand(2.5, 5.5) / (0.8 + this.game.stars * 0.15) / (this.game.spawnRate || 1);
     }
 
     for (const n of this.list) {
@@ -225,7 +272,7 @@ export class NPCManager {
           if (m === n) continue;
           this.separate(n, m.pos, 0.65, 0.5);
         }
-        this.separate(n, playerPos, 0.75, 1);
+        for (const pp of playerPositions) this.separate(n, pp, 0.75, 1);
       }
 
       p.y += (groundY(p.x, p.z) - p.y) * Math.min(1, dt * 12);
@@ -265,38 +312,17 @@ export class NPCManager {
   }
 
   updateOverlay(project, ps, time) {
-    for (const n of this.list) {
-      let ic = null;
-      let showBar = false;
-      if (n.tempT > 0 && n.tempIcon) ic = n.tempIcon;
-      else if (n.state === 'queue') {
-        ic = 'coffee';
-        showBar = n.waiting;
-      } else if (n.state === 'walk' && n.wants && !n.decided) ic = 'coffee';
-      else if (n.state === 'walk' && n.icon && (time + n.seed) % 9 < 3.5) ic = n.icon;
+    for (const n of this.list) renderBubble(n, project, ps, time);
+  }
 
-      const s = ic && project(n.pos, 1.75);
-      if (!ic || !s.on) {
-        n.el.style.display = 'none';
-        continue;
-      }
-      n.el.style.display = 'flex';
-      if (n.curIcon !== ic) {
-        const d = icon(ic);
-        n.img.src = d.url;
-        n.iconW = d.w;
-        n.curIcon = ic;
-      }
-      n.img.style.width = `${n.iconW * ps}px`;
-      n.bar.style.display = showBar ? 'block' : 'none';
-      let shake = 0;
-      if (showBar) {
-        const f = Math.max(0, n.patience / n.patienceMax);
-        n.fill.style.width = `${f * 100}%`;
-        n.fill.style.background = f > 0.5 ? '#5bbf5b' : f > 0.25 ? '#ffd34e' : '#e8424f';
-        if (f < 0.25) shake = Math.round(Math.sin(time * 30) * 0.6) * ps;
-      }
-      n.el.style.transform = `translate(${s.x + shake}px, ${s.y}px) translate(-50%, -100%)`;
-    }
+  // Estado compacto para a rede (host → parceiro)
+  toNet() {
+    const r = (v) => Math.round(v * 100) / 100;
+    return this.list.map((n) => [
+      n.id, n.sheet, r(n.pos.x), r(n.pos.z), r(n.angle), NPC_STATES.indexOf(n.state),
+      (n.wants ? 1 : 0) | (n.decided ? 2 : 0) | (n.waiting ? 4 : 0),
+      r(Math.max(0, n.patience / n.patienceMax)), n.icon, n.tempT > 0 ? n.tempIcon : null,
+      r(Math.max(0, n.tempT)), r(n.seed),
+    ]);
   }
 }
