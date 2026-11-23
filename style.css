@@ -212,3 +212,76 @@ img { image-rendering: pixelated; }
   #objectiveBox { top: auto; bottom: 36px; }
   #help { font-size: 7px; }
 }
+
+/* ---------- Co-op */
+.coop-link { text-align: center; margin-top: 14px; }
+.coop-link a, .card a { color: var(--gold); }
+
+.screen {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(29, 26, 36, 0.85);
+  transition: opacity 0.4s;
+  padding: 16px;
+  z-index: 5;
+}
+.screen.hidden { opacity: 0; pointer-events: none; }
+.screen .card {
+  background: var(--ink);
+  padding: 28px 32px;
+  max-width: 560px;
+  font-size: 10px;
+  line-height: 1.9;
+  box-shadow: 0 -6px 0 0 var(--gold), 0 6px 0 0 var(--gold), -6px 0 0 0 var(--gold), 6px 0 0 0 var(--gold), 0 14px 0 0 rgba(0, 0, 0, 0.3);
+}
+.screen h1 { margin: 0 0 16px; font-size: 24px; color: var(--gold); text-shadow: 4px 4px 0 #7a4a2a; }
+.screen .tag { font-size: 12px; color: #fff; background: #2e8b57; padding: 4px 6px; vertical-align: middle; text-shadow: none; }
+.lobby-row { display: flex; gap: 12px; margin-top: 16px; }
+.btn {
+  font: inherit;
+  font-size: 11px;
+  background: var(--gold);
+  color: var(--ink);
+  border: 0;
+  padding: 10px 14px;
+  cursor: pointer;
+  box-shadow: 0 4px 0 0 #b88a1a;
+}
+.btn:active { transform: translateY(3px); box-shadow: 0 1px 0 0 #b88a1a; }
+#btnHost { flex: 1; }
+#codeInput {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 13px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  background: #1d1a24;
+  color: #fff;
+  border: 0;
+  padding: 10px;
+  box-shadow: inset 0 0 0 3px #4a3f5a;
+}
+.lobby-status { min-height: 1.9em; color: var(--gold); }
+.lobby-status.err { color: #ff7a82; }
+.small { font-size: 8px; }
+
+#roomPanel { display: none; left: 16px; bottom: 36px; }
+#roomPanel b { color: var(--gold); letter-spacing: 2px; }
+#inv .row img { width: 24px; }
+
+.ptag {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: none;
+  font-size: 8px;
+  color: #fff;
+  background: #3a6fd0;
+  padding: 3px 4px;
+  margin-top: -6px;
+  white-space: nowrap;
+}
+#hud.off { display: none; }

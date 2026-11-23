@@ -466,6 +466,11 @@ characterSheet('player.png', {
   skin: '#f2c7a5', hair: '#4a2c1a', shirt: '#f4f4f4', pants: '#2f3b5c', shoes: '#6b3e22',
   apron: '#7a4a2a', hat: '#2e8b57',
 });
+// Barista 2 (co-op): boné azul e avental vinho
+characterSheet('player2.png', {
+  skin: '#c68a5e', hair: '#1a1a1a', shirt: '#f4f4f4', pants: '#3a3a44', shoes: '#222222',
+  apron: '#7a2f3a', hat: '#3a6fd0',
+});
 const NPCS = [
   { skin: '#f5d0b0', hair: '#2b1d14', shirt: '#e8424f', pants: '#2f3b5c', shoes: '#222222' },
   { skin: '#c68a5e', hair: '#1a1a1a', shirt: '#4b8be8', pants: '#3a3a44', shoes: '#f4f4f4', long: true },

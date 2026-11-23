@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pixel Café Co-op</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="overlay">
+      <div id="prompt" class="prompt"></div>
+      <div id="machineBar" class="mbar"><div></div></div>
+      <div id="partnerTag" class="ptag">PARCEIRO</div>
+    </div>
+
+    <div id="hud" class="off">
+      <div class="panel" id="rating">
+        <div id="stars"><img /><img /><img /><img /><img /></div>
+        <div class="rep"><div id="repFill"></div></div>
+        <div class="row"><span id="queueInfo"></span></div>
+        <div class="row dim"><span id="served"></span></div>
+      </div>
+      <div class="panel" id="inv">
+        <div class="row"><img id="icoCoin" /><span id="money"></span></div>
+        <div class="row"><img id="icoBean" /><span id="beans"></span></div>
+        <div class="row"><img id="icoCup" /><span id="cups"></span></div>
+        <div class="row dim"><img id="icoPartner" /><span>Parceiro <span id="partner"></span></span></div>
+      </div>
+      <div class="panel" id="objectiveBox"><span id="objective"></span></div>
+      <div class="panel" id="roomPanel">Sala <b id="roomCode"></b> · <span id="roomStatus"></span></div>
+      <div id="help">WASD/setas mover · SHIFT correr · E interagir · scroll zoom · O contorno · P posterize</div>
+      <div id="toasts"></div>
+    </div>
+
+    <div id="lobby" class="screen">
+      <div class="card">
+        <h1>PIXEL CAFÉ <span class="tag">CO-OP</span></h1>
+        <p>Dois baristas, uma cafeteria. Dinheiro, grãos e estrelas são da dupla; cada um carrega a própria bandeja.</p>
+        <div class="lobby-row">
+          <button id="btnHost" class="btn">Criar sala</button>
+        </div>
+        <div class="lobby-row">
+          <input id="codeInput" maxlength="8" placeholder="CÓDIGO" autocomplete="off" spellcheck="false" />
+          <button id="btnJoin" class="btn">Entrar</button>
+        </div>
+        <p id="lobbyStatus" class="lobby-status"></p>
+        <p class="dim small">Quem cria a sala hospeda a partida: se fechar a aba, o jogo acaba para os dois.</p>
+        <p class="small"><a href="./">← Jogar sozinho</a></p>
+      </div>
+    </div>
+
+    <div id="endScreen" class="screen hidden">
+      <div class="card">
+        <h1>FIM DA PARTIDA</h1>
+        <p id="endMsg"></p>
+        <div class="lobby-row"><button id="btnBack" class="btn">Voltar ao lobby</button></div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/coop/main.js"></script>
+  </body>
+</html>
