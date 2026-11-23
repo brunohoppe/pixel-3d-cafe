@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { CONFIG } from './config.js';
 
 export const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 export const rand = (a, b) => a + Math.random() * (b - a);
@@ -25,24 +26,105 @@ export function rng(seed) {
 let grad = null;
 export function gradientMap() {
   if (grad) return grad;
-  grad = new THREE.DataTexture(new Uint8Array([105, 185, 255]), 3, 1, THREE.RedFormat);
+  grad = new THREE.DataTexture(new Uint8Array([70, 125, 170, 215, 255]), 5, 1, THREE.RedFormat);
   grad.minFilter = grad.magFilter = THREE.NearestFilter;
   grad.needsUpdate = true;
   return grad;
+}
+
+// ---------- Texturas pixel art (assets/textures/*.png)
+const TEX_URLS = import.meta.glob('../assets/textures/*.png', { eager: true, query: '?url', import: 'default' });
+const SPR_URLS = import.meta.glob('../assets/sprites/*.png', { eager: true, query: '?url', import: 'default' });
+const loader = new THREE.TextureLoader();
+const texCache = new Map();
+function loadPixelTexture(url, size) {
+  const t = loader.load(url, (tx) => size && size.set(tx.image.width, tx.image.height));
+  t.magFilter = THREE.NearestFilter;
+  t.minFilter = THREE.NearestFilter;
+  t.generateMipmaps = false;
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+export function tex(name) {
+  const key = 't:' + name;
+  if (!texCache.has(key)) {
+    const t = loadPixelTexture(TEX_URLS[`../assets/textures/${name}.png`]);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    texCache.set(key, t);
+  }
+  return texCache.get(key);
+}
+export function spriteTex(name) {
+  const key = 's:' + name;
+  if (!texCache.has(key)) texCache.set(key, loadPixelTexture(SPR_URLS[`../assets/sprites/${name}.png`]));
+  return texCache.get(key);
+}
+
+// ---------- Shader extra: UV em espaço de mundo (1 texel ≈ 1 pixel) + fade pontilhado (Bayer)
+const WORLD_UV = /* glsl */ `
+#if defined(USE_MAP) && defined(WORLD_UV)
+  vec3 wpT = (modelMatrix * vec4(transformed, 1.0)).xyz;
+  vec3 wnT = abs(normalize(mat3(modelMatrix) * objectNormal));
+  vec2 wuv = (wnT.y >= wnT.x && wnT.y >= wnT.z) ? vec2(wpT.x, -wpT.z)
+           : (wnT.x >= wnT.z ? vec2(-wpT.z, wpT.y) : vec2(wpT.x, wpT.y));
+  vMapUv = wuv / uTile;
+#endif
+`;
+const FRAG_HEAD = /* glsl */ `
+uniform float uFade;
+float bayer4(vec2 p) {
+  int x = int(mod(p.x, 4.0)), y = int(mod(p.y, 4.0));
+  int i = x + y * 4;
+  float m[16] = float[16](0.,8.,2.,10.,12.,4.,14.,6.,3.,11.,1.,9.,15.,7.,13.,5.);
+  return (m[i] + 0.5) / 16.0;
+}
+`;
+const DITHER = /* glsl */ `
+  if (uFade < 0.999 && bayer4(gl_FragCoord.xy) >= uFade) discard;
+`;
+
+// Adiciona UV de mundo e fade pontilhado a qualquer material do three
+export function decorate(m, { worldUV = false, texSize = 32 } = {}) {
+  m.userData.uFade = { value: 1 };
+  m.userData.uTile = { value: new THREE.Vector2(texSize * CONFIG.texel, texSize * CONFIG.texel) };
+  if (worldUV) m.defines = { ...(m.defines || {}), WORLD_UV: '' };
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.uFade = m.userData.uFade;
+    sh.uniforms.uTile = m.userData.uTile;
+    sh.vertexShader = 'uniform vec2 uTile;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n' + WORLD_UV);
+    sh.fragmentShader = FRAG_HEAD + sh.fragmentShader.replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\n' + DITHER);
+  };
+  return m;
+}
+
+export function setFade(m, v) {
+  m.userData.uFade.value = v;
 }
 
 const matCache = new Map();
 export function mat(color) {
   let m = matCache.get(color);
   if (!m) {
-    m = new THREE.MeshToonMaterial({ color, gradientMap: gradientMap() });
+    m = decorate(new THREE.MeshToonMaterial({ color, gradientMap: gradientMap() }));
     matCache.set(color, m);
   }
   return m;
 }
 
 export function uniqueMat(color, extra = {}) {
-  return new THREE.MeshToonMaterial({ color, gradientMap: gradientMap(), ...extra });
+  return decorate(new THREE.MeshToonMaterial({ color, gradientMap: gradientMap(), ...extra }));
+}
+
+// Material texturizado com UV de mundo. texSize = tamanho do PNG em pixels.
+const TEX_SIZES = { table: 16, chair: 16, pot: 16, plant: 16, soil: 16, bark: 16, fence: 16, brick: 16, awning: 16 };
+export function tmat(name, { tint = 0xffffff, unique = false } = {}) {
+  const key = `${name}|${tint}`;
+  if (!unique && matCache.has(key)) return matCache.get(key);
+  const m = decorate(new THREE.MeshToonMaterial({ color: tint, map: tex(name), gradientMap: gradientMap() }), {
+    worldUV: true, texSize: TEX_SIZES[name] || 32,
+  });
+  if (!unique) matCache.set(key, m);
+  return m;
 }
 
 const geoCache = new Map();

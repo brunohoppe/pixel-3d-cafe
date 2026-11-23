@@ -20,22 +20,7 @@ const COUNTER = V(-4.5, -7);
 // Faixas da calçada por sentido (evita trombadas de frente)
 const lane = (north, dir) => (north ? (dir > 0 ? 2.0 : 2.6) : dir > 0 ? 10.0 : 10.6);
 
-const LOOK = {
-  skin: [0xf5d0b0, 0xe8b48f, 0xc68a5e, 0x8d5a3b, 0x5e3a24, 0xffe0c4],
-  shirt: [0xe8424f, 0x4b8be8, 0xf2c14e, 0x5bbf5b, 0xb57be8, 0xf28c3a, 0x3ec1c1, 0xf4f4f4, 0x34344a, 0xff8fb1],
-  pants: [0x2f3b5c, 0x3a3a44, 0x6b4a2a, 0x2d5a3d, 0x8a8f9c, 0x1f2a44, 0x7a2f3a],
-  hair: [0x2b1d14, 0x5a3a1f, 0xd9a441, 0x1a1a1a, 0xa0522d, 0xdedede, 0xc23b22],
-  shoes: [0x222222, 0xf4f4f4, 0x6b3e22, 0xc0392b],
-};
-
-function randomLook() {
-  return {
-    skin: pick(LOOK.skin), shirt: pick(LOOK.shirt), pants: pick(LOOK.pants),
-    hair: pick(LOOK.hair), shoes: pick(LOOK.shoes),
-    hat: Math.random() < 0.22 ? pick(LOOK.shirt) : null,
-    longHair: Math.random() < 0.35,
-  };
-}
+const NPC_SHEETS = ['npc_0', 'npc_1', 'npc_2', 'npc_3', 'npc_4', 'npc_5', 'npc_6', 'npc_7'];
 
 let NEXT_ID = 1;
 
@@ -55,7 +40,7 @@ export class NPCManager {
     const north = Math.random() < 0.55;
     const dir = fromLeft ? 1 : -1;
     const startX = initial ? rand(-38, 38) : -dir * END_X;
-    const char = createCharacter(randomLook());
+    const char = createCharacter(pick(NPC_SHEETS));
     const laneZ = lane(north, dir) + rand(-0.15, 0.15);
     char.root.position.set(startX, groundY(startX, laneZ), laneZ);
     this.scene.add(char.root);
@@ -83,7 +68,7 @@ export class NPCManager {
       tempIcon: null, tempT: 0, prevX: startX, angle: dir > 0 ? Math.PI / 2 : -Math.PI / 2,
       seed: Math.random() * 9, el, img, bar, fill, curIcon: null, dead: false,
     };
-    char.root.rotation.y = n.angle;
+    char.face(n.angle);
     this.list.push(n);
   }
 
@@ -254,7 +239,7 @@ export class NPCManager {
         target = Math.atan2(ahead.x - p.x, ahead.z - p.z);
       }
       n.angle = lerpAngle(n.angle, target, Math.min(1, dt * 10));
-      n.char.root.rotation.y = n.angle;
+      n.char.face(n.angle);
       n.char.animate(dt, speed);
       n.prevX = p.x;
     }
@@ -290,7 +275,7 @@ export class NPCManager {
       } else if (n.state === 'walk' && n.wants && !n.decided) ic = 'coffee';
       else if (n.state === 'walk' && n.icon && (time + n.seed) % 9 < 3.5) ic = n.icon;
 
-      const s = ic && project(n.pos, 2.1);
+      const s = ic && project(n.pos, 1.75);
       if (!ic || !s.on) {
         n.el.style.display = 'none';
         continue;

@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPixelatedPass } from 'three/addons/postprocessing/RenderPixelatedPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { clamp, lerpAngle, resolveCircle, groundY, box } from './util.js';
-import { buildWorld, makeCup } from './world.js';
+import { clamp, lerpAngle, resolveCircle, groundY, setFade } from './util.js';
+import { buildWorld } from './world.js';
+import { PixelRenderer } from './pixelRenderer.js';
+import { CAM } from './sprites.js';
+import { CONFIG } from './config.js';
 import { createCharacter } from './character.js';
 import { Garden } from './garden.js';
 import { NPCManager } from './npc.js';
@@ -34,55 +34,18 @@ function addRep(d) {
   }
 }
 
-// ------------------------------------------------------------------ Render
-const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
-renderer.setPixelRatio(1);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFShadowMap;
-document.getElementById('app').appendChild(renderer.domElement);
-
+// ------------------------------------------------------------------ Render (pixel art)
+const pix = new PixelRenderer(document.getElementById('app'));
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x86c45f);
+scene.background = new THREE.Color(0x78bb52);
+const camTarget = new THREE.Vector3(6, 0, 1.8);
 
-const VIEW = 15;
-const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 140);
-const camOffset = new THREE.Vector3(0, 22, 16);
-const camTarget = new THREE.Vector3(4, 0, 0);
-
-const composer = new EffectComposer(renderer);
-const pixelPass = new RenderPixelatedPass(4, scene, camera, { normalEdgeStrength: 0.35, depthEdgeStrength: 0.45 });
-composer.addPass(pixelPass);
-composer.addPass(new OutputPass());
-
-let iconPx = 2;
-function resize() {
-  const w = innerWidth, h = innerHeight;
-  renderer.setSize(w, h);
-  composer.setSize(w, h);
-  const ps = Math.max(2, Math.round(h / 250));
-  pixelPass.setPixelSize(ps);
-  document.documentElement.style.setProperty('--px', `${ps}px`);
-  iconPx = Math.max(2, Math.round(ps * 0.67));
-  document.documentElement.style.setProperty('--ipx', `${iconPx}px`);
-  const a = w / h;
-  camera.left = (-VIEW * a) / 2;
-  camera.right = (VIEW * a) / 2;
-  camera.top = VIEW / 2;
-  camera.bottom = -VIEW / 2;
-  camera.updateProjectionMatrix();
-}
-addEventListener('resize', resize);
-resize();
-
-// Luz
-scene.add(new THREE.HemisphereLight(0xfff6e8, 0x7a9a6a, 1.35));
-const sun = new THREE.DirectionalLight(0xfff0d0, 2.4);
-sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-Object.assign(sun.shadow.camera, { left: -24, right: 24, top: 24, bottom: -24, near: 1, far: 90 });
-sun.shadow.bias = -0.0006;
-sun.shadow.normalBias = 0.03;
-scene.add(sun, sun.target);
+// Luz simples, sem mapa de sombras (as sombras são elipses sólidas).
+// Topo claro, frente média, lateral escura — o toon divide em faixas.
+scene.add(new THREE.HemisphereLight(0xfff6e8, 0x8a9a7a, 1.0));
+const sun = new THREE.DirectionalLight(0xfff0d0, 2.2);
+sun.position.set(0.05, 1, 0.6);
+scene.add(sun);
 
 // ------------------------------------------------------------------ Mundo
 const world = buildWorld(scene);
@@ -96,25 +59,12 @@ const overlay = document.getElementById('overlay');
 
 // Jogador (barista)
 const player = {
-  char: createCharacter({
-    skin: 0xf2c7a5, shirt: 0xf4f4f4, pants: 0x2f3b5c, hair: 0x4a2c1a, shoes: 0x6b3e22,
-    apron: 0x7a4a2a, hat: 0x2e8b57,
-  }),
+  char: createCharacter('player', { tray: true }),
   vel: new THREE.Vector3(),
   angle: 0,
 };
 player.char.root.position.set(6, 0.12, 1.8);
 scene.add(player.char.root);
-const tray = new THREE.Group();
-tray.position.set(0, 0.86, 0.46);
-player.char.body.add(tray);
-box(tray, 0.6, 0.04, 0.4, 0x9aa0ad, 0, 0, 0);
-const trayCups = [[-0.12, -0.08], [0.12, -0.08], [-0.12, 0.09], [0.12, 0.09]].map(([x, z]) => {
-  const c = makeCup(0.85);
-  c.position.set(x, 0.04, z);
-  tray.add(c);
-  return c;
-});
 
 // NPCs
 game.onAngry = (n) => {
@@ -252,10 +202,23 @@ addEventListener('keydown', (e) => {
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
 addEventListener('blur', () => keys.clear());
+// Zoom em degraus inteiros (mantém 1 texel = 1 pixel)
 addEventListener('wheel', (e) => {
-  camera.zoom = clamp(camera.zoom * (e.deltaY > 0 ? 0.9 : 1.1), 0.7, 1.6);
-  camera.updateProjectionMatrix();
+  pix.setZoom(clamp(pix.zoom + (e.deltaY > 0 ? -1 : 1), -1, 2));
 }, { passive: true });
+// Ajustes visuais ao vivo
+const POSTER_STEPS = [0, 4, 5, 6];
+addEventListener('keydown', (e) => {
+  if (!started || e.repeat) return;
+  if (e.code === 'KeyO') {
+    CONFIG.outline = !CONFIG.outline;
+    toast(`Contorno: ${CONFIG.outline ? 'ligado' : 'desligado'}`);
+  } else if (e.code === 'KeyP') {
+    const i = (POSTER_STEPS.indexOf(CONFIG.posterizeLevels) + 1) % POSTER_STEPS.length;
+    CONFIG.posterizeLevels = POSTER_STEPS[i];
+    toast(`Posterize: ${CONFIG.posterizeLevels || 'desligado'}`);
+  }
+});
 document.getElementById('start').addEventListener('pointerdown', () => start());
 
 function start() {
@@ -332,18 +295,10 @@ function updateHUD() {
   setText('objective', objective());
 }
 
-const _v = new THREE.Vector3();
-function project(pos, yOff) {
-  _v.set(pos.x, pos.y + yOff, pos.z).project(camera);
-  const ps = pixelPass.pixelSize;
-  const x = ((_v.x + 1) / 2) * innerWidth;
-  const y = ((1 - _v.y) / 2) * innerHeight;
-  return { x: Math.round(x / ps) * ps, y: Math.round(y / ps) * ps, on: _v.x > -1.15 && _v.x < 1.15 && _v.y > -1.15 && _v.y < 1.25 };
-}
+const project = (pos, yOff) => pix.project(pos, yOff);
 
 function updateOverlay(dt, time) {
-  const ps = pixelPass.pixelSize;
-  npcs.updateOverlay(project, iconPx, time);
+  npcs.updateOverlay(project, pix.pixelCss, time);
 
   current = started ? findInteractable() : null;
   if (current) {
@@ -358,7 +313,7 @@ function updateOverlay(dt, time) {
   } else promptEl.style.display = 'none';
 
   if (machine.brewing || machine.ready > 0) {
-    const s = project(machine.pos, 2.25);
+    const s = project(machine.pos, 2.4);
     machineBar.style.display = 'block';
     machineBar.firstElementChild.style.width = `${machine.brewing ? (machine.t / machine.dur) * 100 : 100}%`;
     machineBar.classList.toggle('done', !machine.brewing);
@@ -380,13 +335,16 @@ function updateOverlay(dt, time) {
 
 // ------------------------------------------------------------------ Loop
 function updatePlayer(dt) {
-  let ix = 0, iz = 0;
+  // Entrada relativa à tela: W = para cima na tela (câmera isométrica)
+  let sx = 0, sy = 0;
   if (started) {
-    if (keys.has('KeyW') || keys.has('ArrowUp')) iz -= 1;
-    if (keys.has('KeyS') || keys.has('ArrowDown')) iz += 1;
-    if (keys.has('KeyA') || keys.has('ArrowLeft')) ix -= 1;
-    if (keys.has('KeyD') || keys.has('ArrowRight')) ix += 1;
+    if (keys.has('KeyW') || keys.has('ArrowUp')) sy += 1;
+    if (keys.has('KeyS') || keys.has('ArrowDown')) sy -= 1;
+    if (keys.has('KeyA') || keys.has('ArrowLeft')) sx -= 1;
+    if (keys.has('KeyD') || keys.has('ArrowRight')) sx += 1;
   }
+  let ix = sx * CAM.groundRight.x + sy * CAM.groundUp.x;
+  let iz = sx * CAM.groundRight.y + sy * CAM.groundUp.y;
   const len = Math.hypot(ix, iz);
   if (len) { ix /= len; iz /= len; }
   const sp = keys.has('ShiftLeft') || keys.has('ShiftRight') ? 6.2 : 4.0;
@@ -412,10 +370,8 @@ function updatePlayer(dt) {
 
   const speed = Math.hypot(player.vel.x, player.vel.z);
   if (speed > 0.3) player.angle = lerpAngle(player.angle, Math.atan2(player.vel.x, player.vel.z), 1 - Math.exp(-dt * 14));
-  player.char.root.rotation.y = player.angle;
-  player.char.carry = game.carry > 0;
-  tray.visible = game.carry > 0;
-  trayCups.forEach((c, i) => (c.visible = i < game.carry));
+  player.char.face(player.angle);
+  player.char.trayCount = game.carry;
   player.char.animate(dt, speed);
 }
 
@@ -450,34 +406,39 @@ function updateMachine(dt) {
   }
 }
 
+// Paredes/telhado/árvores que tapam o jogador somem com pontilhado (dither)
+const ray = new THREE.Ray();
+const rayO = new THREE.Vector3();
 let fade = 1;
 function updateFade(dt) {
   const p = player.char.root.position;
-  const inside = p.x > -9.6 && p.x < 5.6 && p.z > -16 && p.z < 0.25;
-  fade = clamp(fade + (inside ? -dt : dt) * 5, 0, 1);
-  for (const m of world.fadeMats) m.opacity = fade;
-  world.fadeGroup.visible = fade > 0.15;
+  const inside = p.x > -9.2 && p.x < 5.2 && p.z > -12.2 && p.z < 0.25;
+  ray.set(rayO.set(p.x, p.y + 0.7, p.z), CAM.toCam);
+  const behind = !inside && ray.intersectsBox(world.cafeBox);
+  const target = inside ? 0 : behind ? 0.4 : 1;
+  fade += clamp(target - fade, -dt * 4, dt * 4);
+  const f = Math.round(fade * 16) / 16;
+  for (const m of world.fadeMats) setFade(m, f);
+  for (const m of world.shellMats) setFade(m, behind ? Math.max(f, 0.4) : 1);
+  world.fadeGroup.visible = f > 0.01;
+  for (const o of world.occluders) {
+    const hit = ray.intersectsBox(o.box);
+    if (hit !== o.on) {
+      o.on = hit;
+      for (const m of o.meshes) m.material = hit ? o.faded : o.solid;
+    }
+  }
 }
 
-const right = new THREE.Vector3(), up = new THREE.Vector3();
 function updateCamera(dt) {
   const p = player.char.root.position;
-  camTarget.x += (p.x - camTarget.x) * (1 - Math.exp(-dt * 5));
-  camTarget.z += (p.z - 1 - camTarget.z) * (1 - Math.exp(-dt * 5));
-  camera.position.copy(camTarget).add(camOffset);
-  camera.lookAt(camTarget);
-  camera.updateMatrixWorld();
-  // Encaixa a câmera na grade de pixels (sem tremedeira)
-  const wpp = (camera.top - camera.bottom) / camera.zoom / pixelPass.renderResolution.y;
-  right.setFromMatrixColumn(camera.matrixWorld, 0);
-  up.setFromMatrixColumn(camera.matrixWorld, 1);
-  const rr = camera.position.dot(right), uu = camera.position.dot(up);
-  camera.position.addScaledVector(right, Math.round(rr / wpp) * wpp - rr);
-  camera.position.addScaledVector(up, Math.round(uu / wpp) * wpp - uu);
-  camera.updateMatrixWorld();
-
-  sun.position.set(camTarget.x - 12, 26, camTarget.z + 9);
-  sun.target.position.copy(camTarget);
+  const k = 1 - Math.exp(-dt * 5);
+  camTarget.x += (p.x - camTarget.x) * k;
+  camTarget.z += (p.z - camTarget.z) * k;
+  pix.follow(camTarget);
+  // Sprites presos à grade de pixels do render target
+  player.char.snap();
+  for (const n of npcs.list) n.char.snap();
 }
 
 const clock = new THREE.Clock();
@@ -495,7 +456,7 @@ function frame() {
   const dt = Math.max(1e-4, Math.min(0.05, clock.getDelta()));
   step(dt);
   updateCamera(dt);
-  composer.render(dt);
+  pix.render(scene);
   updateOverlay(dt, simTime);
   updateHUD();
   requestAnimationFrame(frame);
