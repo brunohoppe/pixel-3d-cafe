@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pixel Café</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="overlay">
+      <div id="prompt" class="prompt"></div>
+      <div id="machineBar" class="mbar"><div></div></div>
+    </div>
+
+    <div id="hud">
+      <div class="panel" id="rating">
+        <div id="stars"><img /><img /><img /><img /><img /></div>
+        <div class="rep"><div id="repFill"></div></div>
+        <div class="row"><span id="queueInfo"></span></div>
+        <div class="row dim"><span id="served"></span></div>
+      </div>
+      <div class="panel" id="inv">
+        <div class="row"><img id="icoCoin" /><span id="money"></span></div>
+        <div class="row"><img id="icoBean" /><span id="beans"></span></div>
+        <div class="row"><img id="icoCup" /><span id="cups"></span></div>
+      </div>
+      <div class="panel" id="objectiveBox"><span id="objective"></span></div>
+      <div id="help">WASD/setas mover · SHIFT correr · E interagir · scroll zoom</div>
+      <div id="toasts"></div>
+    </div>
+
+    <div id="start">
+      <div class="card">
+        <h1>PIXEL CAFÉ</h1>
+        <p>Você é o barista da única cafeteria da rua.</p>
+        <ol>
+          <li><b>Horta</b>: plante, regue e colha grãos de café.</li>
+          <li><b>Cafeteira</b>: transforme grãos em café.</li>
+          <li><b>Balcão</b>: sirva quem está na fila antes que a paciência acabe.</li>
+        </ol>
+        <p>Clientes felizes dão estrelas. Cada estrela libera <b>+5 lugares</b> na fila.</p>
+        <p class="blink">Clique ou aperte uma tecla</p>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
