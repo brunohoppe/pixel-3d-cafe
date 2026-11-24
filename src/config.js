@@ -11,7 +11,7 @@ export const CONFIG = {
   camPitch: 30, // graus de inclinação (30° = linhas 2:1 clássicas de pixel art)
 
   // Pós-processamento
-  posterizeLevels: 5, // 0 = desligado; 4 a 6 recomendado (tecla P alterna)
+  posterizeLevels: 0, // 0 = desligado (padrão); 4 a 6 recomendado (tecla P alterna)
   outline: true, // contorno escuro de 1px (tecla O alterna)
   outlineDepth: 0.35, // diferença de profundidade (unidades de mundo) que gera contorno
   outlineDarkness: 0.45, // 0 = preto, 1 = sem escurecer

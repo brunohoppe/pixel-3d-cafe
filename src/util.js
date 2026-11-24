@@ -116,7 +116,7 @@ export function uniqueMat(color, extra = {}) {
 }
 
 // Material texturizado com UV de mundo. texSize = tamanho do PNG em pixels.
-const TEX_SIZES = { table: 16, chair: 16, pot: 16, plant: 16, soil: 16, bark: 16, fence: 16, brick: 16, awning: 16 };
+const TEX_SIZES = { wood_floor: 64, table: 16, chair: 16, pot: 16, plant: 16, soil: 16, bark: 16, fence: 16, brick: 16, awning: 16 };
 export function tmat(name, { tint = 0xffffff, unique = false } = {}) {
   const key = `${name}|${tint}`;
   if (!unique && matCache.has(key)) return matCache.get(key);

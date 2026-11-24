@@ -111,21 +111,35 @@ const INK = '#2b2135';
 // ------------------------------------------------------------------ TEXTURAS
 console.log('Texturas:');
 
-// Piso de tábuas
+// Piso de tábuas longas (sem emendas), veios horizontais em traços claros/escuros
 {
   const R = rng(1);
-  const img = new Img(32, 32);
-  const bases = ['#b07448', '#a76b40', '#b87d4f', '#a2673d'];
-  const joints = [5, 21, 13, 27];
-  const streaks = bases.map(() => Array.from({ length: 3 }, () => [Math.floor(R() * 32), 2 + Math.floor(R() * 4), 2 + Math.floor(R() * 4)]));
-  img.fill((x, y) => {
-    const p = Math.floor(y / 8), yy = y % 8;
-    if (yy === 7) return '#5e3820';
-    if (x === joints[p]) return '#6e4126';
-    if (yy === 0 || x === (joints[p] + 1) % 32) return shade(bases[p], 1.15);
-    for (const [sx, sy, len] of streaks[p]) if (yy === sy && (x - sx + 32) % 32 < len) return shade(bases[p], 0.86);
-    return bases[p];
-  });
+  const S = 64, PH = 8; // 64×64, tábuas de 8px (7 de madeira + 1 de fresta)
+  const img = new Img(S, S);
+  const LINE = '#684830', UNDER = '#875f3d';
+  const bases = ['#a57646', '#a87947', '#a27445', '#a67747', '#a37546', '#a97a49', '#a47546', '#a67846'];
+  const LIGHT = ['#b38552', '#b78857'], DARK = ['#93653e', '#8b6140', '#9a6d42'];
+  for (let p = 0; p < S / PH; p++) {
+    const y0 = p * PH, base = bases[p];
+    img.rect(0, y0, S, PH - 1, base);
+    // veios: traços horizontais de 1px (às vezes 2px de altura), contínuos na emenda lateral
+    for (let yy = 0; yy < PH - 1; yy++) {
+      let x = Math.floor(R() * S);
+      for (let n = 0; n < 2 + Math.floor(R() * 3); n++) {
+        const len = 4 + Math.floor(R() * 14);
+        const c = R() < 0.6 ? LIGHT[Math.floor(R() * LIGHT.length)] : DARK[Math.floor(R() * DARK.length)];
+        const tall = yy < PH - 2 && R() < 0.2;
+        for (let i = 0; i < len; i++) {
+          img.set((x + i) % S, y0 + yy, c);
+          if (tall) img.set((x + i) % S, y0 + yy + 1, c);
+        }
+        x = (x + len + 2 + Math.floor(R() * 10)) % S;
+      }
+    }
+    // sombra logo abaixo da fresta de cima + fresta escura
+    img.rect(0, y0, S, 1, UNDER);
+    img.rect(0, y0 + PH - 1, S, 1, LINE);
+  }
   img.save(TEX_DIR, 'wood_floor.png');
 }
 
