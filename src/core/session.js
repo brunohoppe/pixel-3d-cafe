@@ -128,7 +128,7 @@ export function createSession({
     S.started = true;
     initAudio();
     document.getElementById('start')?.classList.add('hidden');
-    hud.toast('Bem-vindo! Colha café na horta →', 'gold');
+    hud.toast('Bem-vindo! Abra a cafeteria pondo o cavalete na calçada', 'gold');
   }
   S.start = start;
   const POSTER_STEPS = [0, 4, 5, 6];
@@ -200,6 +200,7 @@ export function createSession({
     garden.render(S.simTime);
     machine.render(dt, S.simTime);
     world.counterCups.forEach((c, i) => (c.visible = i < game.counterCups));
+    world.door.update(dt, [...[...S.players.values()].map((p) => p.pos), ...npcs.list.map((n) => n.pos)], game.open);
     particles.update(dt);
     fade(dt, local.pos);
     for (const p of S.players.values()) p.render(dt);

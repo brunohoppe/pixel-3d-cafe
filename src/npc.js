@@ -124,6 +124,16 @@ export class NPCManager {
   // Chegou na faixa de pedestres: decide se vai tomar café
   decide(n) {
     n.decided = true;
+    if (!this.game.open) {
+      // Placa FECHADO: quem queria café desiste e segue caminho
+      if (n.wants) {
+        n.wants = false;
+        n.icon = null;
+        n.tempIcon = 'sad';
+        n.tempT = 2;
+      }
+      return;
+    }
     const impulse = !n.wants && Math.random() < this.game.impulseChance();
     if (!n.wants && !impulse) return;
     if (this.queue.length >= this.game.queueCap) {

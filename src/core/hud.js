@@ -46,6 +46,7 @@ export class Hud {
   }
 
   objective({ player, npcs, machine, garden, game }) {
+    if (!game.open) return 'Abra a cafeteria: ponha o CAVALETE na calçada';
     if (player.carry > 0) return npcs.front() ? 'Sirva o cliente no BALCÃO' : 'Aguarde um cliente no balcão';
     if (machine.ready > 0) return 'Pegue o café na CAFETEIRA';
     if (machine.brewing) return 'Preparando café...';
@@ -70,7 +71,7 @@ export class Hud {
     } else this.promptEl.style.display = 'none';
 
     if (machine.brewing || machine.ready > 0) {
-      const p = this.project(machine.pos, 2.4);
+      const p = this.project(machine.pos, 2.1);
       this.machineBar.style.display = 'block';
       this.machineBar.firstElementChild.style.width = `${machine.brewing ? (machine.t / machine.dur) * 100 : 100}%`;
       this.machineBar.classList.toggle('done', !machine.brewing);

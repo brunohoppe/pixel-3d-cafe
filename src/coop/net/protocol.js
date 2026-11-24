@@ -9,7 +9,7 @@
 //   { t: 'welcome', v }          aceito na sala
 //   { t: 'full' } / { t: 'version' }  recusado
 //   { t: 's', time, g, m, pl, q, h, gc, n, ev }  snapshot (15×/s):
-//     g  = [dinheiro, grãos, reputação, atendidos, perdidos, cafés na bandeja do balcão]
+//     g  = [dinheiro, grãos, reputação, atendidos, perdidos, cafés na bandeja do balcão, aberto (1/0)]
 //     m  = cafeteira [preparando, t, prontas]
 //     pl = canteiros [[estado, progresso, regado], ...]
 //     q  = [tamanho da fila, primeiro pronto para servir]
@@ -18,7 +18,7 @@
 //     n  = clientes (ver NPCManager.toNet)
 //     ev = efeitos desde o último snapshot (som, avisos, textos, partículas)
 
-export const VERSION = 3; // 2: bandeja do balcão no estado; 3: retirada no balcão (estado 'pickup', slot na fila)
+export const VERSION = 4; // 2: bandeja do balcão; 3: retirada no balcão (estado 'pickup', slot na fila); 4: placa aberto/fechado
 export const SNAP_HZ = 15;
 export const INPUT_HZ = 20;
 export const INTERP_DELAY = 0.1; // s de atraso para interpolar entre snapshots
@@ -28,9 +28,10 @@ export const now = () => performance.now() / 1000;
 export const r2 = (v) => Math.round(v * 100) / 100;
 
 export function encodeGame(g) {
-  return [g.money, g.beans, g.rep, g.served, g.lost, g.counterCups];
+  return [g.money, g.beans, g.rep, g.served, g.lost, g.counterCups, g.open ? 1 : 0];
 }
 
 export function applyGame(g, a) {
   [g.money, g.beans, g.rep, g.served, g.lost, g.counterCups] = a;
+  g.open = a[6] !== 0;
 }

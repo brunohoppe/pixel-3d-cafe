@@ -1,4 +1,5 @@
 import { addRep } from './state.js';
+import { AFRAME_SPOTS } from '../world.js';
 
 // Cobra o café entregue a um cliente (no balcão ou na retirada). frac = paciência restante 0..1
 export function chargeCustomer(game, fx, npc, frac) {
@@ -18,7 +19,7 @@ export function buildInteractables({ game, machine, garden, npcs, fx }) {
   const list = [];
 
   list.push({
-    id: 'machine', pos: machine.pos, r: 2.0, py: 2.9,
+    id: 'machine', pos: machine.pos, r: 2.0, py: 2.6,
     label(pl) {
       const { canPick, canBrew } = machine.options(pl, game);
       if (canPick && canBrew) return { text: 'Pegar café + preparar mais' };
@@ -48,7 +49,7 @@ export function buildInteractables({ game, machine, garden, npcs, fx }) {
   });
 
   list.push({
-    id: 'counter', pos: { x: -4.5, y: 0.12, z: -7 }, r: 2.0, py: 1.9,
+    id: 'counter', pos: { x: -4.5, y: 0.12, z: -7 }, r: 2.0, py: 1.6,
     label(pl) {
       if (!npcs.front()) return null;
       if (pl.carry <= 0) return { text: 'Cliente esperando — pegue café', off: true };
@@ -64,7 +65,7 @@ export function buildInteractables({ game, machine, garden, npcs, fx }) {
 
   // Caixa registradora: menu de pedidos para indicar quem retira no balcão (sem fila)
   list.push({
-    id: 'orders', pos: { x: -2.4, y: 0.12, z: -7 }, r: 1.3, py: 1.9, ui: 'orders',
+    id: 'orders', pos: { x: -2.4, y: 0.12, z: -7 }, r: 1.3, py: 1.6, ui: 'orders',
     remote: true, // também pelo app do celular, de qualquer lugar
     label() {
       return { text: `Pedidos (${npcs.queueLength} na fila)` };
@@ -77,9 +78,25 @@ export function buildInteractables({ game, machine, garden, npcs, fx }) {
     },
   });
 
+  // Cavalete "ABERTO": levar para a calçada abre a cafeteria; guardar lá dentro fecha
+  list.push({
+    id: 'sign', r: 1.2, py: 1.8,
+    get pos() {
+      return AFRAME_SPOTS[game.open ? 'out' : 'in'];
+    },
+    label() {
+      return { text: game.open ? 'Guardar cavalete (fechar)' : 'Pôr cavalete na calçada (abrir)' };
+    },
+    action() {
+      game.open = !game.open;
+      fx.sfx('pick');
+      fx.toast(game.open ? 'Cafeteria ABERTA!' : 'Cafeteria FECHADA — novos clientes não entram', game.open ? 'gold' : 'orange');
+    },
+  });
+
   // Bandeja no balcão: mãos com café → deixa tudo; mãos vazias → pega
   list.push({
-    id: 'stash', pos: { x: -7.5, y: 0.12, z: -7 }, r: 1.4, py: 1.7,
+    id: 'stash', pos: { x: -7.5, y: 0.12, z: -7 }, r: 1.4, py: 1.4,
     label(pl) {
       const n = game.counterCups, space = game.counterMax - n;
       if (pl.carry > 0 && space > 0) return { text: `Deixar café no balcão (${n}/${game.counterMax})` };

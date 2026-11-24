@@ -16,6 +16,52 @@ function signPlane(parent, name, pw, ph, x, y, z, material) {
   return m;
 }
 
+// Fonte 3x5 só com as letras das placas
+// Cavalete de calçada (frente 15x20 texels, em pé): quadro-negro com uma xícara de café
+const AFRAME_W = 15, AFRAME_H = 20;
+const AFRAME_ICON = [
+  '..s..s.....',
+  '...s..s....',
+  '..s..s.....',
+  '...........',
+  'ccccccccc..',
+  'cbbbbbbbccc',
+  'ccccccccc.c',
+  'ccccccccc.c',
+  'cccccccccc.',
+  '.ccccccc...',
+  'yyyyyyyyy..',
+];
+// Onde o cavalete fica: na calçada ao lado da porta / guardado por dentro, perto da parede da frente
+export const AFRAME_SPOTS = {
+  out: { x: -0.3, y: 0, z: 0.9 },
+  in: { x: -3.9, y: 0.12, z: -0.8 },
+};
+function aframeTex() {
+  const W = AFRAME_W, H = AFRAME_H;
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const g = c.getContext('2d');
+  const px = (color, x, y, w = 1, h = 1) => {
+    g.fillStyle = color;
+    g.fillRect(x, y, w, h);
+  };
+  px('#9a6a3e', 0, 0, W, 18); // moldura
+  px('#b5814f', 0, 0, W, 1);
+  px('#6b4426', 0, 17, W, 1);
+  px('#2f3d36', 1, 1, W - 2, 16); // quadro-negro
+  px('#6b4426', 0, 18, 2, 2); // pernas
+  px('#6b4426', W - 2, 18, 2, 2);
+  const COL = { s: '#c9d6e0', c: '#f4ead8', b: '#6b3e22', y: '#ffd34e' };
+  AFRAME_ICON.forEach((row, y) => [...row].forEach((ch, x) => COL[ch] && px(COL[ch], 2 + x, 3 + y)));
+  const t = new THREE.CanvasTexture(c);
+  t.magFilter = t.minFilter = THREE.NearestFilter;
+  t.generateMipmaps = false;
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
 function snapped(x, y, z) {
   const p = new THREE.Vector3(x, y, z);
   return p.add(pixelSnapOffset(p, new THREE.Vector3()));
@@ -217,6 +263,40 @@ function buildCafe(scene) {
     solid(wx - 1, wx + 1, 0, 0.5);
   }
 
+  // Porta dupla de vidro (abre para dentro quando alguém chega perto)
+  const doorLeaves = [];
+  for (const [hx, s] of [[-3.11, 1], [-0.89, -1]]) {
+    const pivot = new THREE.Group();
+    pivot.position.set(hx, 0, -0.15);
+    fadeGroup.add(pivot);
+    const cx = s * 0.555; // folha de 1,1 a partir da dobradiça
+    box(pivot, 1.1, 2.33, 0.06, ft, cx, 0.03, 0);
+    box(pivot, 0.78, 1.2, 0.07, glass, cx, 0.95, 0);
+    box(pivot, 0.06, 0.3, 0.1, fm(0xd9a441), cx + s * 0.42, 1.0, 0);
+    doorLeaves.push({ pivot, s, a: 0 });
+  }
+
+  // Cavalete "ABERTO": na calçada quando a cafeteria está aberta, guardado lá dentro quando fecha.
+  // Duas tábuas inclinadas, alinhadas com a casa (frente para a rua)
+  const aframe = new THREE.Group();
+  const afW = AFRAME_W * T, afH = AFRAME_H * T, tilt = 0.22;
+  const afFront = new THREE.Mesh(
+    new THREE.PlaneGeometry(afW, afH).translate(0, afH / 2, 0),
+    decorate(new THREE.MeshBasicMaterial({ map: aframeTex(), alphaTest: 0.5, side: THREE.DoubleSide })),
+  );
+  afFront.rotation.x = -tilt;
+  afFront.position.z = Math.sin(tilt) * afH;
+  aframe.add(afFront);
+  const afBackMat = uniqueMat(0x6b4426);
+  afBackMat.side = THREE.DoubleSide;
+  const afBack = new THREE.Mesh(new THREE.PlaneGeometry(afW, afH * 0.9).translate(0, afH * 0.45, 0), afBackMat);
+  afBack.rotation.x = tilt;
+  afBack.position.z = -Math.sin(tilt) * afH * 0.9;
+  aframe.add(afBack);
+  blob(aframe, 1.1, 0.6);
+  g.add(aframe);
+  let aframeKey = '';
+
   // Letreiro
   signPlane(fadeGroup, 'sign_cafe', 48, 11, -2, 2.8, 0.02, fm(0xffffff, { map: tex('sign_cafe') }));
 
@@ -234,11 +314,12 @@ function buildCafe(scene) {
   box(fadeGroup, 0.8, 2.4, 0.8, ftm('brick'), 1.8, 3.4, -8.5);
   box(fadeGroup, 0.95, 0.15, 0.95, fm(0x5a2a20), 1.8, 5.8, -8.5);
 
-  // Balcão
-  box(g, 7.2, 1.0, 1.0, tmat('counter'), -5.1, F, -7);
-  box(g, 7.4, 0.1, 1.15, top, -5.1, F + 1.0, -7);
+  // Balcão (altura ~60% do personagem, que tem 24 texels = 1,33)
+  const CH = 0.72; // corpo do balcão e da bancada de trás
+  const Tp = F + CH + 0.08; // tampo
+  box(g, 7.2, CH, 1.0, tmat('counter'), -5.1, F, -7);
+  box(g, 7.4, 0.08, 1.15, top, -5.1, F + CH, -7);
   solid(-8.7, -1.5, -7.55, -6.45);
-  const Tp = F + 1.1;
   box(g, 0.6, 0.35, 0.5, 0x3b3f4f, -2.4, Tp, -7.1);
   box(g, 0.4, 0.2, 0.06, uniqueMat(0x7af0a0, { emissive: 0x2a8a50, emissiveIntensity: 0.6 }), -2.4, Tp + 0.35, -7.25, { rx: -0.4 });
   // Retirada: bandeja na ponta esquerda do balcão com 6 lugares (3×2)
@@ -258,13 +339,13 @@ function buildCafe(scene) {
   box(g, 0.6, 0.3, 0.05, 0xd9a441, -5.7, F + 1.0, -5.6);
 
   // Bancada de trás
-  box(g, 6.7, 1.0, 0.9, tmat('counter'), -5.35, F, -11.25);
-  box(g, 6.8, 0.1, 0.95, top, -5.35, F + 1.0, -11.25);
+  box(g, 6.7, CH, 0.9, tmat('counter'), -5.35, F, -11.25);
+  box(g, 6.8, 0.08, 0.95, top, -5.35, F + CH, -11.25);
   solid(-8.7, -2, -11.7, -10.75);
 
   // Cafeteira
   const M = new THREE.Group();
-  M.position.set(-5, F + 1.1, -11.3);
+  M.position.set(-5, Tp, -11.3);
   g.add(M);
   box(M, 1.3, 1.0, 0.6, 0xc9ced8, 0, 0, 0);
   box(M, 1.38, 0.12, 0.66, 0x3a3d4a, 0, 1.0, 0);
@@ -322,8 +403,26 @@ function buildCafe(scene) {
     fadeMats,
     shellMats: [shell],
     cafeBox: new THREE.Box3(new THREE.Vector3(-9.3, 0, -12.3), new THREE.Vector3(5.3, 6, 0.6)),
-    machine: { group: M, cups: machineCups, lightMat, steamPos: new THREE.Vector3(-5, F + 2.0, -10.9) },
+    machine: { group: M, cups: machineCups, lightMat, steamPos: new THREE.Vector3(-5, Tp + 0.9, -10.9) },
     counterCups,
+    // Porta da frente: abre sozinha com gente perto. O cavalete fica fora (aberto) ou dentro (fechado)
+    door: {
+      pos: new THREE.Vector3(-2, 0, -0.15),
+      update(dt, people, isOpen) {
+        const key = isOpen ? 'out' : 'in';
+        if (key !== aframeKey) {
+          aframeKey = key;
+          const s = AFRAME_SPOTS[key];
+          aframe.position.copy(snapped(s.x, s.y, s.z));
+        }
+        const near = people.some((p) => Math.abs(p.x + 2) < 1.6 && Math.abs(p.z + 0.15) < 1.5);
+        const k = 1 - Math.exp(-dt * 8);
+        for (const l of doorLeaves) {
+          l.a += ((near ? 1.45 : 0) - l.a) * k;
+          l.pivot.rotation.y = l.s * l.a;
+        }
+      },
+    },
     chimneyPos: new THREE.Vector3(1.8, 6.0, -8.5),
   };
 }
