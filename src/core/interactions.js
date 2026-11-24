@@ -55,6 +55,34 @@ export function buildInteractables({ game, machine, garden, npcs, fx }) {
     },
   });
 
+  // Bandeja no balcão: mãos com café → deixa tudo; mãos vazias → pega
+  list.push({
+    id: 'stash', pos: { x: -6.0, y: 0.12, z: -7 }, r: 1.4, py: 1.7, approach: { x: -6.0, z: -8.1 },
+    label(pl) {
+      const n = game.counterCups, space = game.counterMax - n;
+      if (pl.carry > 0 && space > 0) return { text: `Deixar café no balcão (${n}/${game.counterMax})` };
+      if (pl.carry > 0) return { text: 'Bandeja do balcão cheia', off: true };
+      if (n > 0) return { text: `Pegar café do balcão (${n})` };
+      return null; // vazio e mãos vazias: não atrapalha o "Servir" ao lado
+    },
+    action(pl) {
+      const space = game.counterMax - game.counterCups;
+      if (pl.carry > 0 && space > 0) {
+        const k = Math.min(pl.carry, space);
+        pl.carry -= k;
+        game.counterCups += k;
+        fx.sfx('pick', pl.id);
+        fx.float(pl.pos, `-${k} café`, '#f4ead8');
+      } else if (pl.carry === 0 && game.counterCups > 0) {
+        const k = Math.min(game.counterCups, game.maxCarry);
+        game.counterCups -= k;
+        pl.carry += k;
+        fx.sfx('pick', pl.id);
+        fx.float(pl.pos, `+${k} café`, '#f4ead8');
+      } else fx.sfx('deny', pl.id);
+    },
+  });
+
   garden.plots.forEach((p, i) => {
     list.push({
       id: `plot${i}`, pos: p.pos, r: 2.1, py: 1.4,

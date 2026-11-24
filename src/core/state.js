@@ -5,6 +5,7 @@ import { clamp } from '../util.js';
 export function createGameState({ coop = false } = {}) {
   return {
     money: 0, beans: 2, rep: 10, served: 0, lost: 0, maxCarry: 4,
+    counterCups: 0, counterMax: 6, // cafés deixados na bandeja do balcão (compartilhados)
     npcScale: coop ? 1.3 : 1,
     spawnRate: coop ? 1.25 : 1,
     get stars() { return clamp(1 + Math.floor(this.rep / 20), 1, 5); },

@@ -9,6 +9,7 @@ import { randomCode, normalizeCode, hostOnline, joinOnline, hostLocal, joinLocal
 const $ = (id) => document.getElementById(id);
 const qs = new URLSearchParams(location.search);
 const local = qs.has('local'); // ?local = abas do mesmo navegador (testes)
+const debug = (S) => qs.has('debug') && import('../debug/index.js').then((m) => m.attachDebug(S)); // ?debug: clique do mouse
 const lobby = $('lobby');
 const status = (msg, err = false) => {
   $('lobbyStatus').textContent = msg;
@@ -36,6 +37,7 @@ function createRoom(code = randomCode(), tries = 0) {
       lobby.classList.add('hidden');
       const S = createSession({ mode: 'host', coop: true, localId: 'host', localSheet: 'player', keepAliveInBackground: true });
       host = startHost(S, { onStatus: setRoomStatus });
+      debug(S);
       if (import.meta.env.DEV) window.__S = S; // inspeção em desenvolvimento
       showRoom(c);
       setRoomStatus('waiting');
@@ -68,6 +70,7 @@ function joinRoom(raw) {
         makeNpcs: (scene, overlay) => new NPCPuppets(scene, overlay),
       });
       startClient(S, t, { onEnd: showEnd });
+      debug(S);
       if (import.meta.env.DEV) window.__S = S; // inspeção em desenvolvimento
       showRoom(code);
       setRoomStatus('connected');

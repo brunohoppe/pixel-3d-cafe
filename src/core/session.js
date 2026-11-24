@@ -63,6 +63,7 @@ export function createSession({
     requestAction: null, // (interativo) → executa ou pede ao host
     clientStep: null, // cliente: aplica snapshots
     afterFrame: null, // rede
+    autoInput: null, // (input) → input substituto ou null (debug: clique para andar)
   };
 
   S.addPlayer = (id, sheet) => {
@@ -152,7 +153,9 @@ export function createSession({
       if (keys.has('KeyA') || keys.has('ArrowLeft')) sx -= 1;
       if (keys.has('KeyD') || keys.has('ArrowRight')) sx += 1;
     }
-    return { sx, sy, run: keys.has('ShiftLeft') || keys.has('ShiftRight') };
+    const input = { sx, sy, run: keys.has('ShiftLeft') || keys.has('ShiftRight') };
+    // Gancho opcional (módulo de debug): pode substituir o movimento, ex.: andar até um clique
+    return (S.started && S.autoInput?.(input)) || input;
   }
 
   function obstaclesFor(p) {
@@ -173,6 +176,7 @@ export function createSession({
     } else S.clientStep?.(dt);
     garden.render(S.simTime);
     machine.render(dt, S.simTime);
+    world.counterCups.forEach((c, i) => (c.visible = i < game.counterCups));
     particles.update(dt);
     fade(dt, local.pos);
     for (const p of S.players.values()) p.render(dt);

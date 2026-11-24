@@ -236,6 +236,19 @@ function buildCafe(scene) {
   [[0xe2a65a, -7.8], [0xf2c6d8, -7.45], [0x8a5a3a, -7.1], [0xe2a65a, -6.8]].forEach(([c, x]) => box(g, 0.24, 0.14, 0.24, c, x, Tp + 0.05, -7));
   box(g, 0.6, 0.35, 0.5, 0x3b3f4f, -2.4, Tp, -7.1);
   box(g, 0.4, 0.2, 0.06, uniqueMat(0x7af0a0, { emissive: 0x2a8a50, emissiveIntensity: 0.6 }), -2.4, Tp + 0.35, -7.25, { rx: -0.4 });
+  // Cantinho para deixar cafés: bandeja sobre o balcão com 6 lugares (3×2)
+  box(g, 1.1, 0.04, 0.62, 0x8a5a3a, -6.0, Tp, -7);
+  box(g, 1.0, 0.02, 0.52, 0xc9a66b, -6.0, Tp + 0.04, -7, { cast: false });
+  const counterCups = [];
+  for (let j = 0; j < 2; j++) {
+    for (let i = 0; i < 3; i++) {
+      const c = makeCup();
+      c.position.set(-6.32 + i * 0.32, Tp + 0.06, -7.13 + j * 0.26);
+      c.visible = false;
+      g.add(c);
+      counterCups.push(c);
+    }
+  }
   box(g, 0.08, 1.0, 0.08, 0x3b3f4f, -5.7, F, -5.6);
   box(g, 0.6, 0.3, 0.05, 0xd9a441, -5.7, F + 1.0, -5.6);
 
@@ -305,6 +318,7 @@ function buildCafe(scene) {
     shellMats: [shell],
     cafeBox: new THREE.Box3(new THREE.Vector3(-9.3, 0, -12.3), new THREE.Vector3(5.3, 6, 0.6)),
     machine: { group: M, cups: machineCups, lightMat, steamPos: new THREE.Vector3(-5, F + 2.0, -10.9) },
+    counterCups,
     chimneyPos: new THREE.Vector3(1.8, 6.0, -8.5),
   };
 }
