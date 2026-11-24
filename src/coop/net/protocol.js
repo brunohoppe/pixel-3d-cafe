@@ -3,7 +3,7 @@
 // parceiro → host
 //   { t: 'hello', v }            ao conectar
 //   { t: 'p', x, z, a, s }       posição/ângulo/velocidade do barista do parceiro (20×/s)
-//   { t: 'i', id }               pedido de interação com o objeto `id`
+//   { t: 'i', id, arg }          pedido de interação com o objeto `id` (arg: ex. id do cliente no menu de pedidos)
 //
 // host → parceiro
 //   { t: 'welcome', v }          aceito na sala
@@ -18,7 +18,7 @@
 //     n  = clientes (ver NPCManager.toNet)
 //     ev = efeitos desde o último snapshot (som, avisos, textos, partículas)
 
-export const VERSION = 2; // 2: bandeja do balcão (counterCups) no estado
+export const VERSION = 3; // 2: bandeja do balcão no estado; 3: retirada no balcão (estado 'pickup', slot na fila)
 export const SNAP_HZ = 15;
 export const INPUT_HZ = 20;
 export const INTERP_DELAY = 0.1; // s de atraso para interpolar entre snapshots

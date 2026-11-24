@@ -1,7 +1,19 @@
 import { addRep } from './state.js';
 
-// Objetos interativos. label(player) roda em todos; action(player) só em quem simula.
+// Cobra o café entregue a um cliente (no balcão ou na retirada). frac = paciência restante 0..1
+export function chargeCustomer(game, fx, npc, frac) {
+  const tip = Math.round(4 * frac);
+  game.money += 5 + tip;
+  game.served++;
+  addRep(game, 4 + Math.round(3 * frac), fx);
+  fx.sfx('serve');
+  fx.float(npc.pos, tip > 0 ? `+$${5 + tip} (gorjeta!)` : '+$5', '#ffd34e');
+}
+
+// Objetos interativos. label(player) roda em todos; action(player, arg) só em quem simula.
 // Cada um tem um `id` estável para o pedido de interação viajar pela rede.
+// `ui`: em vez de agir direto, abre uma tela local (ex.: menu de pedidos), que depois
+// manda action(player, arg) com a escolha.
 export function buildInteractables({ game, machine, garden, npcs, fx }) {
   const list = [];
 
@@ -46,18 +58,28 @@ export function buildInteractables({ game, machine, garden, npcs, fx }) {
       if (!npcs.front() || pl.carry <= 0) return fx.sfx('deny', pl.id);
       const { npc, frac } = npcs.serve();
       pl.carry--;
-      const tip = Math.round(4 * frac);
-      game.money += 5 + tip;
-      game.served++;
-      addRep(game, 4 + Math.round(3 * frac), fx);
-      fx.sfx('serve');
-      fx.float(npc.pos, tip > 0 ? `+$${5 + tip} (gorjeta!)` : '+$5', '#ffd34e');
+      chargeCustomer(game, fx, npc, frac);
+    },
+  });
+
+  // Caixa registradora: menu de pedidos para indicar quem retira no balcão (sem fila)
+  list.push({
+    id: 'orders', pos: { x: -2.4, y: 0.12, z: -7 }, r: 1.3, py: 1.9, ui: 'orders',
+    remote: true, // também pelo app do celular, de qualquer lugar
+    label() {
+      return { text: `Pedidos (${npcs.queueLength} na fila)` };
+    },
+    action(pl, npcId) {
+      const n = typeof npcId === 'number' && npcs.sendToPickup?.(npcId) && npcs.list.find((m) => m.id === npcId);
+      if (!n) return fx.sfx('deny', pl.id);
+      fx.sfx('join');
+      fx.float(n.pos, 'vai retirar no balcão', '#9fd6f0');
     },
   });
 
   // Bandeja no balcão: mãos com café → deixa tudo; mãos vazias → pega
   list.push({
-    id: 'stash', pos: { x: -6.0, y: 0.12, z: -7 }, r: 1.4, py: 1.7, approach: { x: -6.0, z: -8.1 },
+    id: 'stash', pos: { x: -7.5, y: 0.12, z: -7 }, r: 1.4, py: 1.7,
     label(pl) {
       const n = game.counterCups, space = game.counterMax - n;
       if (pl.carry > 0 && space > 0) return { text: `Deixar café no balcão (${n}/${game.counterMax})` };

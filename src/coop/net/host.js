@@ -59,9 +59,9 @@ export function startHost(S, { onStatus } = {}) {
     } else if (m.t === 'i') {
       const it = S.interactables.find((i) => i.id === m.id);
       const gp = guest.net || guest.pos;
-      const near = it && Math.hypot(it.pos.x - gp.x, it.pos.z - gp.z) <= it.r + 0.75;
+      const near = it && (it.remote || Math.hypot(it.pos.x - gp.x, it.pos.z - gp.z) <= it.r + 0.75);
       const l = near && it.label(guest);
-      if (l && !l.off) it.action(guest);
+      if (l && !l.off) it.action(guest, typeof m.arg === 'number' ? m.arg : undefined);
       else S.fx.sfx('deny', 'guest');
     }
   }

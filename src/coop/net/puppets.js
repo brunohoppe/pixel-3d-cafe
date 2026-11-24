@@ -54,6 +54,8 @@ export class NPCPuppets {
       n.tempIcon = rb[9];
       n.tempT = rb[10];
       n.seed = rb[11];
+      n.slot = rb[12] ?? -1;
+      n.sheet = rb[1];
       n.char.face(n.angle);
       n.char.animate(dt, speed);
     }

@@ -20,7 +20,7 @@ export function startClient(S, t, { onEnd } = {}) {
     onEnd?.(msg);
   }
 
-  S.requestAction = (it) => t.send({ t: 'i', id: it.id });
+  S.requestAction = (it, arg) => t.send({ t: 'i', id: it.id, arg });
 
   function onSnap(s) {
     const est = s.time - now();

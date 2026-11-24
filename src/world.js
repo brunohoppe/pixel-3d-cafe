@@ -182,7 +182,14 @@ function buildCafe(scene) {
   const shell = tmat('wall', { unique: true }); // some parcialmente quando o jogador está atrás
   box(g, 14, 3.2, 0.3, shell, -2, 0, -11.85); solid(-9, 5, -12, -11.7);
   box(g, 0.3, 3.2, 12, shell, -8.85, 0, -6); solid(-9, -8.7, -12, 0);
-  box(fadeGroup, 0.3, 3.2, 12, ftm('wall'), 4.85, 0, -6); solid(4.7, 5, -12, 0);
+  // Leste com porta para a horta: vão z -7.35..-5.75, na mesma linha do portão da cerca
+  // e do caminho de terra entre as fileiras de canteiros (dá para ir reto)
+  const ew = ftm('wall'), etrim = fm(trim);
+  box(fadeGroup, 0.3, 3.2, 4.65, ew, 4.85, 0, -9.675); solid(4.7, 5, -12, -7.35);
+  box(fadeGroup, 0.3, 3.2, 5.75, ew, 4.85, 0, -2.875); solid(4.7, 5, -5.75, 0);
+  box(fadeGroup, 0.3, 0.8, 1.6, ew, 4.85, 2.4, -6.55);
+  for (const z of [-7.35, -5.75]) box(fadeGroup, 0.42, 2.5, 0.16, etrim, 4.85, 0, z);
+  box(fadeGroup, 0.42, 0.16, 1.76, etrim, 4.85, 2.4, -6.55);
   box(g, 13.4, 0.9, 0.05, 0x8fb8a0, -2, F, -11.68, { cast: false });
   box(g, 0.05, 0.9, 11.4, 0x8fb8a0, -8.68, F, -6, { cast: false });
 
@@ -232,18 +239,16 @@ function buildCafe(scene) {
   box(g, 7.4, 0.1, 1.15, top, -5.1, F + 1.0, -7);
   solid(-8.7, -1.5, -7.55, -6.45);
   const Tp = F + 1.1;
-  box(g, 1.6, 0.5, 0.8, uniqueMat(0xcdeefa, { transparent: true, opacity: 0.55 }), -7.3, Tp, -7);
-  [[0xe2a65a, -7.8], [0xf2c6d8, -7.45], [0x8a5a3a, -7.1], [0xe2a65a, -6.8]].forEach(([c, x]) => box(g, 0.24, 0.14, 0.24, c, x, Tp + 0.05, -7));
   box(g, 0.6, 0.35, 0.5, 0x3b3f4f, -2.4, Tp, -7.1);
   box(g, 0.4, 0.2, 0.06, uniqueMat(0x7af0a0, { emissive: 0x2a8a50, emissiveIntensity: 0.6 }), -2.4, Tp + 0.35, -7.25, { rx: -0.4 });
-  // Cantinho para deixar cafés: bandeja sobre o balcão com 6 lugares (3×2)
-  box(g, 1.1, 0.04, 0.62, 0x8a5a3a, -6.0, Tp, -7);
-  box(g, 1.0, 0.02, 0.52, 0xc9a66b, -6.0, Tp + 0.04, -7, { cast: false });
+  // Retirada: bandeja na ponta esquerda do balcão com 6 lugares (3×2)
+  box(g, 1.1, 0.04, 0.62, 0x8a5a3a, -7.5, Tp, -7);
+  box(g, 1.0, 0.02, 0.52, 0xc9a66b, -7.5, Tp + 0.04, -7, { cast: false });
   const counterCups = [];
   for (let j = 0; j < 2; j++) {
     for (let i = 0; i < 3; i++) {
       const c = makeCup();
-      c.position.set(-6.32 + i * 0.32, Tp + 0.06, -7.13 + j * 0.26);
+      c.position.set(-7.82 + i * 0.32, Tp + 0.06, -7.13 + j * 0.26);
       c.visible = false;
       g.add(c);
       counterCups.push(c);
@@ -363,8 +368,12 @@ function buildGarden(scene) {
     solid(Math.min(x0, x1) - 0.1, Math.max(x0, x1) + 0.1, Math.min(z0, z1) - 0.1, Math.max(z0, z1) + 0.1);
   };
   fence(7, -11, 17, -11);
-  fence(7, -11, 7, -1);
+  // Portão: o vão de colisão (z -7.35..-5.75) é igual ao da porta leste, para passar reto
+  // (a cerca tem 0.1 de folga na colisão, por isso os mourões ficam em -7.45 e -5.65)
+  fence(7, -11, 7, -7.45);
+  fence(7, -5.65, 7, -1);
   fence(17, -11, 17, -1);
+  box(scene, 2.2, 0.02, 1.6, 0xc2a073, 6.1, 0, -6.55, { cast: false }); // trilha porta → portão
   fence(7, -1, 11, -1);
   fence(13, -1, 17, -1);
 

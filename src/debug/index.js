@@ -1,13 +1,14 @@
-// Módulo de debug (só carrega com ?debug na URL). Clique do mouse:
-//  - no chão: o barista anda até lá desviando de paredes e móveis
-//  - em cafeteira / balcão / canteiro: anda até ele, interage (igual à tecla E) e mostra o estado
-//  - em cliente ou barista: mostra o estado dele (atualiza ao vivo)
-// Esc limpa a seleção e cancela o caminho. Qualquer tecla de movimento também cancela.
+// Módulo de debug (só carrega com ?debug na URL). Mouse:
+//  - botão esquerdo SEGURADO: o barista anda na direção do cursor (sem calcular caminho;
+//    escorrega nas paredes). Soltou, parou.
+//  - botão direito em cafeteira / balcão / bandeja / canteiro: anda reto até ele, interage
+//    (igual à tecla E) e mostra o estado
+//  - botão direito em cliente ou barista: mostra o estado dele (atualiza ao vivo)
+// Esc limpa a seleção e para. Qualquer tecla de movimento também para.
 import * as THREE from 'three';
 import { CAM } from '../sprites.js';
 import { groundY } from '../util.js';
 import { sfx } from '../audio.js';
-import { findPath } from './pathfind.js';
 
 const STYLE = `
 #dbgPanel { position: fixed; left: 8px; top: 50%; transform: translateY(-50%); z-index: 4;
@@ -17,13 +18,10 @@ const STYLE = `
 #dbgBadge { position: fixed; left: 50%; bottom: 34px; transform: translateX(-50%); z-index: 4;
   padding: 4px 8px; background: #e8424f; color: #fff; font: 9px 'Press Start 2P', monospace;
   pointer-events: none; }
-.dbg-dot { position: absolute; left: 0; top: 0; width: 6px; height: 6px; margin: -3px 0 0 -3px;
-  background: #ffd34e; border: 1px solid #2b2135; pointer-events: none; display: none; }
-.dbg-dot.end { width: 10px; height: 10px; margin: -5px 0 0 -5px; background: #e8424f; }
 `;
 
-const ARRIVE = 0.15; // distância para considerar um ponto alcançado
-const STUCK_TIME = 1.5; // sem progresso por esse tempo → desiste
+const ARRIVE = 0.15; // distância para considerar o ponto alcançado
+const STUCK_TIME = 0.6; // sem chegar mais perto por esse tempo → para
 
 export function attachDebug(S) {
   const { pix, hud } = S;
@@ -32,20 +30,11 @@ export function attachDebug(S) {
 
   document.head.appendChild(Object.assign(document.createElement('style'), { textContent: STYLE }));
   const panel = Object.assign(document.createElement('div'), { id: 'dbgPanel' });
-  const badge = Object.assign(document.createElement('div'), { id: 'dbgBadge', textContent: 'DEBUG · clique: andar / interagir / inspecionar · Esc limpa' });
+  const badge = Object.assign(document.createElement('div'), { id: 'dbgBadge', textContent: 'DEBUG · segure o botão esquerdo: andar · botão direito: interagir / inspecionar · Esc limpa' });
   document.body.append(panel, badge);
-  const dots = [];
-  const dot = (i) => {
-    while (dots.length <= i) {
-      const d = document.createElement('div');
-      d.className = 'dbg-dot';
-      hud.overlay.appendChild(d);
-      dots.push(d);
-    }
-    return dots[i];
-  };
 
-  let path = null; // pontos restantes
+  let hold = null; // {x, y} do cursor enquanto o botão esquerdo está segurado
+  let target = null; // ponto {x, z} para onde andar (ação do botão direito)
   let goalIt = null; // interativo para usar ao chegar
   let selected = null; // { kind, ref, it? }
   let stuck = { t: 0, d: Infinity };
@@ -104,94 +93,105 @@ export function attachDebug(S) {
     };
   }
 
-  // ---------- Movimento por caminho (substitui o teclado enquanto houver caminho)
-  function go(target, it = null) {
-    path = findPath(S.local.pos, target);
+  // ---------- Andar em linha reta até o alvo (substitui o teclado enquanto houver alvo)
+  function go(t, it = null) {
+    target = { x: t.x, z: t.z };
     goalIt = it;
     stuck = { t: S.simTime, d: Infinity };
-    if (!path) {
-      sfx.deny();
-      hud.toast('Debug: sem caminho até lá', 'red');
-    }
   }
   function stop() {
-    path = null;
+    target = null;
     goalIt = null;
   }
   function useGoal() {
     const it = goalIt;
     stop();
     const l = it.label(S.local);
-    if (l && !l.off) S.requestAction(it);
+    if (l && !l.off) S.use(it);
     else {
       sfx.deny();
       if (l) hud.toast(`Debug: ${l.text}`, 'orange');
     }
   }
 
+  // Direção no chão → eixos da tela (groundRight/groundUp são ortonormais)
+  const toInput = (dx, dz, run) => {
+    const d = Math.hypot(dx, dz), wx = dx / d, wz = dz / d;
+    return {
+      sx: wx * CAM.groundRight.x + wz * CAM.groundRight.y,
+      sy: wx * CAM.groundUp.x + wz * CAM.groundUp.y,
+      run,
+    };
+  };
+
   S.autoInput = (input) => {
     if (input.sx || input.sy) {
-      if (path) stop(); // teclado manda
+      if (target) stop(); // teclado manda
       return null;
     }
-    if (!path) return null;
     const p = S.local.pos;
-    const inReach = () => goalIt && Math.hypot(goalIt.pos.x - p.x, goalIt.pos.z - p.z) < goalIt.r - 0.2;
-    if (inReach()) {
+    if (hold) {
+      // Recalcula o ponto sob o cursor a cada passo (a câmera anda junto com o barista)
+      const g = screenToGround(hold.x, hold.y);
+      const dx = g.x - p.x, dz = g.z - p.z;
+      if (Math.hypot(dx, dz) < 0.3) return { sx: 0, sy: 0, run: input.run }; // cursor em cima do barista
+      return toInput(dx, dz, input.run);
+    }
+    if (!target) return null;
+    const goalD = goalIt && Math.hypot(goalIt.pos.x - p.x, goalIt.pos.z - p.z);
+    if (goalIt && goalD < goalIt.r - 0.2) {
       useGoal();
       return null;
     }
-    while (path.length && Math.hypot(path[0].x - p.x, path[0].z - p.z) < ARRIVE) {
-      path.shift();
-      stuck = { t: S.simTime, d: Infinity }; // novo ponto: recomeça a medir progresso
-    }
-    if (!path.length) {
+    const dx = target.x - p.x, dz = target.z - p.z, d = Math.hypot(dx, dz);
+    if (d < ARRIVE) {
       if (goalIt) useGoal();
       else stop();
       return null;
     }
-    // Sem progresso (preso em cliente ou quina) → desiste
-    const t = path[0], dx = t.x - p.x, dz = t.z - p.z, d = Math.hypot(dx, dz);
+    // Preso num obstáculo (sem chegar mais perto) → para; se já alcança o objeto, usa
     if (d < stuck.d - 0.05) stuck = { t: S.simTime, d };
     else if (S.simTime - stuck.t > STUCK_TIME) {
-      if (goalIt && Math.hypot(goalIt.pos.x - p.x, goalIt.pos.z - p.z) < goalIt.r) useGoal(); // perto o bastante
-      else {
-        stop();
-        hud.toast('Debug: caminho bloqueado', 'orange');
-      }
+      if (goalIt && goalD < goalIt.r) useGoal();
+      else stop();
       return null;
     }
-    // Direção no chão → eixos da tela (groundRight/groundUp são ortonormais)
-    const wx = dx / d, wz = dz / d;
-    return {
-      sx: wx * CAM.groundRight.x + wz * CAM.groundRight.y,
-      sy: wx * CAM.groundUp.x + wz * CAM.groundUp.y,
-      run: input.run,
-    };
+    return toInput(dx, dz, input.run);
   };
 
   // ---------- Entrada
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   canvas.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0 || !S.started) return;
-    const hit = pick(e.clientX, e.clientY);
-    if (hit?.kind === 'objeto') {
+    if (!S.started) return;
+    if (e.button === 0) {
+      // Esquerdo: anda enquanto segurar (cancela uma ida até objeto)
+      stop();
+      hold = { x: e.clientX, y: e.clientY };
+      canvas.setPointerCapture(e.pointerId); // continua valendo se o cursor sair do canvas
+    } else if (e.button === 2) {
+      // Direito: ação no que estiver sob o cursor
+      const hit = pick(e.clientX, e.clientY);
       selected = hit;
-      go(hit.it.approach || hit.it.pos, hit.it); // approach: lado de onde se usa (ex.: atrás do balcão)
-    } else if (hit) {
-      selected = hit;
-    } else {
-      selected = null;
-      const g = screenToGround(e.clientX, e.clientY);
-      go({ x: g.x, z: g.z });
+      if (hit?.kind === 'objeto') go(hit.it.pos, hit.it);
     }
   });
+  canvas.addEventListener('pointermove', (e) => {
+    if (hold) hold = { x: e.clientX, y: e.clientY };
+  });
+  const release = (e) => {
+    if (!e || e.button === 0) hold = null;
+  };
+  canvas.addEventListener('pointerup', release);
+  canvas.addEventListener('pointercancel', () => release());
+  addEventListener('blur', () => release());
   addEventListener('keydown', (e) => {
     if (e.code !== 'Escape') return;
     selected = null;
+    hold = null;
     stop();
   });
 
-  // ---------- Painel e marcadores (depois de cada quadro)
+  // ---------- Painel (depois de cada quadro)
   const fmt = (v) => (typeof v === 'number' ? (Number.isInteger(v) ? v : v.toFixed(2)) : v);
   const SKIP = new Set(['el', 'img', 'bar', 'fill', 'curIcon', 'iconW', 'seed', 'scene', 'world', 'particles', 'char', 'mesh', 'net']);
   function describe(sel) {
@@ -216,24 +216,10 @@ export function attachDebug(S) {
     return lines.join('\n');
   }
 
-  function place(el, p, y = 0.05) {
-    const s = pix.project({ x: p.x, y: groundY(p.x, p.z), z: p.z }, y);
-    el.style.display = s.on ? 'block' : 'none';
-    el.style.transform = `translate(${s.x}px, ${s.y}px)`;
-  }
-
   const prevAfter = S.afterFrame;
   S.afterFrame = (dt) => {
     prevAfter?.(dt);
     if (document.hidden) return;
-    // Caminho: pontos amarelos, destino em vermelho
-    const pts = path || [];
-    pts.forEach((p, i) => {
-      const d = dot(i);
-      d.classList.toggle('end', i === pts.length - 1);
-      place(d, p);
-    });
-    for (let i = pts.length; i < dots.length; i++) dots[i].style.display = 'none';
     // Seleção some se o cliente saiu do jogo
     if (selected && selected.kind !== 'objeto' && !S.npcs.list.includes(selected.ref) && ![...S.players.values()].includes(selected.ref)) selected = null;
     panel.style.display = selected ? 'block' : 'none';

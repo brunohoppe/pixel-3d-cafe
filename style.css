@@ -285,3 +285,77 @@ img { image-rendering: pixelated; }
   white-space: nowrap;
 }
 #hud.off { display: none; }
+
+/* Menu de pedidos (caixa registradora) */
+#ordersMenu {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  min-width: 340px; max-width: 92vw; z-index: 6; pointer-events: auto;
+  display: none;
+}
+#ordersMenu.show { display: block; }
+.olist .otitle { color: var(--gold); font-size: 12px; }
+.olist .osub { color: #a89fb5; margin: 6px 0 10px; font-size: 8px; }
+.olist .orows { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; }
+.olist .orow { display: flex; align-items: center; gap: 8px; padding: 4px 6px; background: rgba(255, 255, 255, 0.05); }
+.olist .orow.can { cursor: pointer; }
+.olist .orow.can:hover { background: rgba(255, 211, 78, 0.18); }
+.olist .orow:not(.can) { opacity: 0.7; }
+.olist .okey { width: 18px; text-align: center; color: var(--gold); }
+.olist .oface {
+  width: 32px; height: 32px; flex: none;
+  background-size: 128px 144px; background-position: 0 0; background-repeat: no-repeat;
+  image-rendering: pixelated;
+}
+.olist .oinfo { display: flex; flex-direction: column; gap: 5px; font-size: 8px; }
+.olist .obar { display: block; width: 120px; height: 5px; background: #4a3f5a; }
+.olist .obar span { display: block; height: 100%; }
+.olist .oempty { color: #a89fb5; font-size: 8px; padding: 6px 0; }
+.olist .ohint { margin-top: 10px; font-size: 7px; color: #a89fb5; }
+
+/* Celular (HUD) */
+#hudRight { position: absolute; top: 16px; right: 16px; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+#hudRight > #inv { position: static; }
+#phoneBtn {
+  pointer-events: auto; cursor: pointer; border: 0; font: inherit; font-size: 10px; color: var(--paper);
+  position: relative; background: none; padding: 0; display: block; margin-right: 4px;
+}
+#phoneBtn img { display: block; width: 40px; image-rendering: pixelated; filter: drop-shadow(2px 2px 0 rgba(43, 33, 53, 0.6)); }
+#phoneBtn:hover img, #phoneBtn.on img { transform: translateY(-2px); }
+#phoneBtn .pbadge { position: absolute; top: -6px; right: -10px; border-radius: 7px; font-size: 9px; padding: 4px 5px; box-shadow: 0 0 0 2px var(--ink); }
+.pbadge:empty { display: none; }
+.pbadge { background: #e8424f; color: #fff; font-size: 7px; padding: 3px 4px; min-width: 8px; text-align: center; }
+#phone {
+  position: fixed; right: 16px; top: 180px;
+  width: 300px; max-width: calc(100vw - 32px); height: 480px;
+  background: var(--ink); border: 4px solid #5a5068; border-radius: 26px; padding: 10px 10px 8px;
+  z-index: 7; pointer-events: auto; display: none; flex-direction: column; align-items: center; gap: 8px;
+  box-shadow: 0 0 0 4px var(--ink), 6px 6px 0 4px rgba(0, 0, 0, 0.35);
+}
+#phone.show { display: flex; }
+#phone .pnotch { width: 60px; height: 6px; background: #5a5068; border-radius: 3px; flex: none; }
+#phone .pscreen {
+  flex: 1; width: 100%; min-height: 0; background: #3b2f4a; border-radius: 8px; padding: 8px 10px;
+  display: flex; flex-direction: column; font-size: 10px; overflow: hidden;
+}
+#phone .pstatus { display: flex; justify-content: space-between; font-size: 7px; color: #a89fb5; margin-bottom: 14px; flex: none; }
+#phone .phome { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+#phone.inapp .phome { display: none; }
+#phone .pview { display: none; flex-direction: column; min-height: 0; flex: 1; }
+#phone.inapp .pview { display: flex; }
+#phone .papp { background: none; border: 0; font: inherit; color: var(--paper); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+#phone .picon {
+  position: relative; width: 52px; height: 52px; background: var(--gold); border-radius: 12px;
+  display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 0 #c99a1e;
+}
+#phone .papp:hover .picon { filter: brightness(1.1); }
+#phone .picon img { width: 36px; image-rendering: pixelated; }
+#phone .picon .pbadge { position: absolute; top: -5px; right: -5px; border-radius: 6px; }
+#phone .plabel { font-size: 7px; }
+#phone .phead { display: flex; align-items: center; gap: 8px; flex: none; }
+#phone .pback { background: #5a5068; border: 0; color: var(--paper); font: inherit; font-size: 8px; padding: 4px 6px; cursor: pointer; }
+#phone .pback:hover { color: var(--gold); }
+#phone .orows { max-height: none; flex: 1; min-height: 0; }
+#phone .obar { width: 100px; }
+#phone .oinfo { font-size: 7px; }
+#phone .phomebar { width: 90px; height: 6px; border: 0; border-radius: 3px; background: #5a5068; cursor: pointer; flex: none; }
+#phone .phomebar:hover { background: #a89fb5; }

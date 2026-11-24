@@ -17,11 +17,17 @@ const END_X = 46;
 const DOOR_OUT = V(-2.6, 1.9);
 const COUNTER = V(-4.5, -7);
 
+// Retirada no balcão: clientes indicados no menu de pedidos saem da fila e esperam
+// na frente da bandeja (ponta esquerda do balcão) até ter café nela
+export const PICKUP_MAX = 3;
+const PICKUP = [V(-7.5, -6.05), V(-6.7, -5.5), V(-8.2, -5.5)];
+const PICKUP_EXIT = [V(-6, -3.2), V(-1.4, -1.8), V(-1.4, 1.9), V(-1.4, 2.3)];
+
 // Faixas da calçada por sentido (evita trombadas de frente)
 const lane = (north, dir) => (north ? (dir > 0 ? 2.0 : 2.6) : dir > 0 ? 10.0 : 10.6);
 
 export const NPC_SHEETS = ['npc_0', 'npc_1', 'npc_2', 'npc_3', 'npc_4', 'npc_5', 'npc_6', 'npc_7'];
-export const NPC_STATES = ['walk', 'queue', 'leave'];
+export const NPC_STATES = ['walk', 'queue', 'leave', 'pickup'];
 
 // Balão (DOM) sobre a cabeça do cliente
 export function createBubble(overlay) {
@@ -44,7 +50,7 @@ export function renderBubble(n, project, ps, time) {
   let ic = null;
   let showBar = false;
   if (n.tempT > 0 && n.tempIcon) ic = n.tempIcon;
-  else if (n.state === 'queue') {
+  else if (n.state === 'queue' || n.state === 'pickup') {
     ic = 'coffee';
     showBar = n.waiting;
   } else if (n.state === 'walk' && n.wants && !n.decided) ic = 'coffee';
@@ -83,6 +89,7 @@ export class NPCManager {
     this.game = game;
     this.list = [];
     this.queue = [];
+    this.pickup = []; // indicados para retirar no balcão (ordem de chegada)
     this.spawnT = 1.5;
     for (let i = 0; i < 6; i++) this.spawn(true);
   }
@@ -174,9 +181,45 @@ export class NPCManager {
     return n && n.waiting && n.path.length === 0 ? n : null;
   }
 
+  // Tira da fila e manda esperar na retirada do balcão. false se não der.
+  sendToPickup(id) {
+    const n = this.queue.find((q) => q.id === id);
+    if (!n || this.pickup.length >= PICKUP_MAX) return false;
+    this.queue.splice(this.queue.indexOf(n), 1);
+    const p = n.pos;
+    n.spot = PICKUP.find((s) => !this.pickup.some((m) => m.spot === s));
+    n.state = 'pickup';
+    n.slot = -1;
+    n.atSpot = false;
+    if (!n.waiting) {
+      n.waiting = true;
+      n.patienceMax = n.patience = this.game.patience();
+    }
+    // Lá fora: entra pela porta; dentro: vai para o lado oeste e depois até a bandeja
+    if (p.z > 0.3) n.path = [V(-2, 1.4), V(-2, -0.6), V(-6.4, -2.5), n.spot.clone()];
+    else n.path = [V(-6.4, Math.min(p.z, -2.5)), n.spot.clone()];
+    this.pickup.push(n);
+    this.reroute();
+    return true;
+  }
+
+  // Pega um café da bandeja do balcão e vai embora (paga como se fosse servido)
+  takeFromCounter(n) {
+    const frac = n.patience / n.patienceMax;
+    this.game.counterCups--;
+    this.leaveTo(n, PICKUP_EXIT.map((v) => v.clone()));
+    n.tempIcon = 'heart';
+    n.tempT = 4;
+    this.game.onPickup?.(n, frac);
+  }
+
   leaveTo(n, path) {
     const idx = this.queue.indexOf(n);
     if (idx >= 0) this.queue.splice(idx, 1);
+    const k = this.pickup.indexOf(n);
+    if (k >= 0) this.pickup.splice(k, 1);
+    n.spot = null;
+    n.atSpot = false;
     n.state = 'leave';
     n.waiting = false;
     n.wants = false;
@@ -251,6 +294,8 @@ export class NPCManager {
           if (n.state === 'queue' && !n.waiting) {
             n.waiting = true;
             n.patienceMax = n.patience = this.game.patience();
+          } else if (n.state === 'pickup') {
+            n.atSpot = true;
           } else if (n.state === 'leave') {
             const dir = Math.random() < 0.5 ? -1 : 1;
             n.state = 'walk';
@@ -261,13 +306,13 @@ export class NPCManager {
         }
       }
 
-      if (n.state === 'queue' && n.waiting) {
+      if ((n.state === 'queue' && n.waiting) || n.state === 'pickup') {
         n.patience -= dt;
         if (n.patience <= 0) this.angry(n);
       }
 
       // Separação (só quem anda livre desvia)
-      if (n.state !== 'queue') {
+      if (n.state !== 'queue' && n.state !== 'pickup') {
         for (const m of this.list) {
           if (m === n) continue;
           this.separate(n, m.pos, 0.65, 0.5);
@@ -284,11 +329,17 @@ export class NPCManager {
       else if (n.state === 'queue') {
         const ahead = n.slot > 0 ? SLOTS[n.slot - 1] : COUNTER;
         target = Math.atan2(ahead.x - p.x, ahead.z - p.z);
-      }
+      } else if (n.state === 'pickup' && n.atSpot) target = Math.PI; // olhando para a bandeja
       n.angle = lerpAngle(n.angle, target, Math.min(1, dt * 10));
       n.char.face(n.angle);
       n.char.animate(dt, speed);
       n.prevX = p.x;
+    }
+
+    // Quem já chegou na retirada pega café da bandeja, por ordem de chegada
+    for (const n of [...this.pickup]) {
+      if (this.game.counterCups <= 0) break;
+      if (n.atSpot) this.takeFromCounter(n);
     }
 
     for (let i = this.list.length - 1; i >= 0; i--) {
@@ -322,7 +373,7 @@ export class NPCManager {
       n.id, n.sheet, r(n.pos.x), r(n.pos.z), r(n.angle), NPC_STATES.indexOf(n.state),
       (n.wants ? 1 : 0) | (n.decided ? 2 : 0) | (n.waiting ? 4 : 0),
       r(Math.max(0, n.patience / n.patienceMax)), n.icon, n.tempT > 0 ? n.tempIcon : null,
-      r(Math.max(0, n.tempT)), r(n.seed),
+      r(Math.max(0, n.tempT)), r(n.seed), n.slot,
     ]);
   }
 }

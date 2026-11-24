@@ -10,7 +10,9 @@ import { createGameState, addRep } from './state.js';
 import { createFx } from './fx.js';
 import { Player } from './player.js';
 import { Machine } from './machine.js';
-import { buildInteractables, findInteractable } from './interactions.js';
+import { buildInteractables, findInteractable, chargeCustomer } from './interactions.js';
+import { createOrdersMenu } from './orders.js';
+import { createPhone } from './phone.js';
 import { Hud } from './hud.js';
 import { createFade } from './fade.js';
 
@@ -99,13 +101,24 @@ export function createSession({
       lastReject = S.simTime;
     };
     game.onJoin = () => fx.sfx('join');
+    game.onPickup = (n, frac) => chargeCustomer(game, fx, n, frac); // retirou café da bandeja
   }
 
   const machine = new Machine(world, particles);
   S.machine = machine;
   const interactables = buildInteractables({ game, machine, garden, npcs, fx });
   S.interactables = interactables;
-  S.requestAction = (it) => it.action(local);
+  S.requestAction = (it, arg) => it.action(local, arg);
+  // Telas locais abertas por interativos com `ui`
+  S.ui = { orders: createOrdersMenu(S) };
+  S.phone = createPhone(S); // celular no HUD: app de pedidos de qualquer lugar
+  // Usar um interativo (tecla E ou clique do debug): age ou abre a tela dele
+  S.use = (it) => {
+    const l = it.label(local);
+    if (!l || l.off) return sfx.deny();
+    if (it.ui) S.ui[it.ui]?.open(it);
+    else S.requestAction(it);
+  };
   const fade = createFade(world);
 
   // ---------- Entrada
@@ -123,11 +136,21 @@ export function createSession({
     if (!S.started) return start();
     keys.add(e.code);
     if (e.repeat) return;
-    if (e.code === 'KeyE' || e.code === 'Space') {
+    const menu = S.ui.orders, phone = S.phone;
+    const digit = /^Digit[1-9]$/.test(e.code) ? +e.code.slice(5) - 1 : -1;
+    if (menu.isOpen && (e.code === 'Escape' || digit >= 0)) {
+      if (e.code === 'Escape') menu.close();
+      else menu.choose(digit);
+    } else if (phone.appOpen && digit >= 0) {
+      phone.choose(digit);
+    } else if (phone.isOpen && e.code === 'Escape') {
+      phone.close();
+    } else if (e.code === 'KeyC') {
+      phone.toggle();
+    } else if (e.code === 'KeyE' || e.code === 'Space') {
       e.preventDefault();
-      const c = S.current;
-      if (c && !c.l.off) S.requestAction(c.it);
-      else if (c) sfx.deny();
+      if (menu.isOpen) menu.close();
+      else if (S.current) S.use(S.current.it);
     } else if (e.code === 'KeyO') {
       CONFIG.outline = !CONFIG.outline;
       hud.toast(`Contorno: ${CONFIG.outline ? 'ligado' : 'desligado'}`);
@@ -217,6 +240,8 @@ export function createSession({
     pix.render(scene);
     npcs.updateOverlay(hud.project, pix.pixelCss, S.simTime);
     S.current = S.started ? findInteractable(interactables, local) : null;
+    S.ui.orders.update();
+    S.phone.update();
     hud.update(dt, { game, player: local, partner: S.partner(), npcs, machine, garden, current: S.current, coop });
     S.afterFrame?.(dt);
     requestAnimationFrame(frame);
